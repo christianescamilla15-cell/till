@@ -6,3 +6,5 @@ datos/
 web/node_modules/
 web/dist/
 web/capturas/
+.vercel/
+.env*.local
