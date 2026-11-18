@@ -181,12 +181,15 @@ el hardware simulado vive en memoria y no persiste entre ejecuciones.
 
 Medidos el 17-nov-2026 en una laptop de desarrollo (12 hilos, Linux), Python 3.12.3:
 
-- `pytest`: **76 pruebas aprobadas** en ~8 s (la mayor parte es `fsync` de SQLite con `synchronous=FULL`).
+- `pytest`: **77 pruebas aprobadas** en ~8.6 s (la mayor parte es `fsync` de SQLite con
+  `synchronous=FULL`): 34 de escenarios de falla, 1 de propiedades con 60 secuencias aleatorias,
+  9 de API, 9 de dispositivos, 8 de ISO 8583 y host, 5 de mezcla de billetes, 4 de libro mayor,
+  4 de flota y 3 de cuadre.
 - Benchmark de flota con 15 000 cajeros × 24 h: **0.77 s** para el modelo agregado
-  (≈2.3 millones de operaciones simuladas, ≈3 millones de operaciones/s) y **1.06 s** en total
-  incluyendo una muestra de 20 cajeros × 15 operaciones con la máquina de estados real, fallas
-  aleatorias y 13 reinicios por corte de energía; los 20 cuadraron y los saldos de los clientes
-  fueron exactos.
+  (≈2.3 millones de operaciones simuladas, ≈3.1 millones de operaciones/s) y **1.02 s** en total
+  (1.08 s de reloj para el proceso completo, 32 MB de memoria máxima) incluyendo una muestra de
+  20 cajeros × 15 operaciones con la máquina de estados real, fallas aleatorias y 13 reinicios por
+  corte de energía; los 20 cuadraron y los saldos de los clientes fueron exactos.
 
 Los parámetros del simulador (operaciones por día, tasas de falla, tiempo de reparación, cargas de
 efectivo) son **supuestos ilustrativos**, no datos de una red real.
