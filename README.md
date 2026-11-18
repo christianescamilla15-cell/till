@@ -37,7 +37,7 @@ De ahí sale todo lo demás:
 
 | Etapa | Qué es | Estado |
 |---|---|---|
-| **1. Automatización determinista** | Máquinas que hacen lo que hace un cajero humano en ventanilla (retiro, depósito, pago de crédito, envío de remesa) con garantías transaccionales y cuadre exacto. | **Este repositorio** (núcleo backend con pruebas, sin UI). |
+| **1. Automatización determinista** | Máquinas que hacen lo que hace un cajero humano en ventanilla (retiro, depósito, pago de crédito, envío de remesa) con garantías transaccionales y cuadre exacto. | **Este repositorio**: núcleo con pruebas y una [demo web](#demo-web) sobre la API real. |
 | **2. IA detrás de una compuerta de reglas** | Asistente por voz, verificación de identidad por visión y detección de fraude. **La IA propone, las reglas autorizan**: ningún modelo mueve dinero; sus salidas son señales que una compuerta determinista acepta o rechaza, con bitácora. | Diseño; se monta sobre la Etapa 1 cuando ésta es estable a escala regional. |
 
 El despliegue por oleadas (piloto de 50 sucursales → región → nacional) y lo que se mide en cada una
@@ -110,7 +110,10 @@ stateDiagram-v2
 | `till/core/` | Máquina de estados AUTORIZAR → ENTREGAR/RECIBIR → CONFIRMAR, bitácora SQLite en modo WAL con escritura anticipada (el STAN se guarda antes de mandar la 0200; la reversa se guarda antes de mandar la 0420), historial de transiciones sólo-anexar, reenvío de reversas con espera exponencial y **recuperación al reiniciar**. |
 | `till/recon/` | Cuadre de fin de día a tres bandas: conteo físico de casetes y bolsas contra libro mayor (por ubicación y denominación), libro contra totales del host (por tipo de operación), y lo que explica una diferencia legítima (reversas sin acuse, efectivo en tránsito, efectivo de clientes retenido en aclaración). |
 | `till/fleet/` | Simulador agregado de N cajeros (hasta 15 000) con asyncio y tablas precalculadas, más una **muestra de alta fidelidad** que corre la máquina de estados real en N cajeros con fallas aleatorias y verifica que todos cuadren. Comando de benchmark. |
-| `till/api/` | API FastAPI para una UI futura: operaciones por cajero, inyección de fallas, reinicio, reversas, libro mayor, cuadre y métricas de flota. Documentación interactiva en `/docs`. |
+| `till/api/` | API FastAPI: operaciones por cajero, inyección de fallas, reinicio, reversas, traza ISO 8583, libro mayor, cuadre y métricas de flota. Una red simulada por visitante (encabezado `X-Till-Sesion`) y las mismas rutas montables bajo `/api` para la demo web. Documentación interactiva en `/docs`. |
+| `till/host/traza.py` | Traza de los mensajes ISO 8583 que viajan al banco (solicitud, respuesta o lo que pasó en su lugar), con el PAN enmascarado y sin el campo 55: es lo que la demo muestra. |
+| `web/` | Demo web (Vite + React, sin librerías de UI): el cajero, el taller de fallas, los libros y la flota. |
+| `api/index.py` | Entrada de la demo: la API bajo `/api` como función de Python en Vercel; en local también sirve `web/dist` con la misma CSP. |
 
 ### Qué pasa con cada falla
 
@@ -140,7 +143,7 @@ Requisitos: Python 3.12.
 
 ```bash
 python3.12 -m venv .venv
-.venv/bin/pip install -r requirements.txt
+.venv/bin/pip install -r requirements-dev.txt   # requirements.txt sólo trae lo de ejecución
 
 # Pruebas
 .venv/bin/python -m pytest
@@ -177,14 +180,115 @@ curl -X POST localhost:8000/flota/simulacion -H 'Content-Type: application/json'
 La red de demostración (3 cajeros, 4 tarjetas de prueba, un crédito) arranca limpia en cada inicio:
 el hardware simulado vive en memoria y no persiste entre ejecuciones.
 
+## Demo web
+
+`web/` es la interfaz que ve una persona desde el portafolio: una sola página con cuatro zonas sobre
+la API real del núcleo (nada está pregrabado).
+
+1. **El cajero.** La pantalla del cliente, igual a la del render del portafolio (degradado azul noche,
+   acento turquesa, Noto Sans): «Acercar tarjeta de prueba», elegir operación (retiro, depósito, pago de
+   crédito, remesa), monto o billetes, confirmar, «Toma tu efectivo» y el comprobante que imprimió la
+   impresora simulada. Sólo PANs de prueba; en pantalla, traza y base sólo queda el PAN enmascarado.
+2. **El taller de fallas.** Arma una falla para la siguiente operación —atasco, entrega parcial, tiempo
+   agotado (el banco aprueba y su 0210 se pierde), corte de energía a media entrega o enlace caído— o
+   reinicia el cajero. Muestra la línea de tiempo real de la transacción (AUTORIZAR → ENTREGAR →
+   CONFIRMAR o REVERTIR, con sus transiciones y milisegundos), los mensajes ISO 8583 que viajaron (tipo y
+   campos principales, PAN enmascarado) y la reversa reintentándose (0420, 0421…) hasta el 0430.
+3. **Los libros.** Saldo del cliente y adeudo del crédito en el banco, efectivo por casete (y en rechazo
+   o retenido), el libro mayor con sus asientos recientes y la verificación de partida doble, y «Cuadrar
+   el día» con las tres bandas.
+4. **La flota.** Corre el simulador agregado con 1 a 15 000 cajeros (1 día, 3 días o una semana):
+   disponibilidad, operaciones, fallas, reversas, reabasto estimado por día y el tiempo que tardó; y la
+   muestra de alta fidelidad (20 cajeros con la máquina de estados real).
+
+Español e inglés (selector ES/EN o `?lang=en`). Sin animaciones decorativas, contraste AA, foco visible,
+todo operable con teclado y, en celular, las zonas se apilan con el cajero primero. Todo se sirve desde
+el mismo origen (tipografías Noto Sans con licencia OFL en `web/public/fonts`) y funciona con una CSP
+estricta: `default-src 'self'`, sin `eval` ni estilos en línea.
+
+### Levantarla en local
+
+Requisitos: Python 3.12 y Node 18 o posterior.
+
+```bash
+# Tal como se publica: front construido + API, con la misma CSP de producción
+npm ci --prefix web && npm run build --prefix web
+.venv/bin/uvicorn api.index:app --port 8000          # http://127.0.0.1:8000
+
+# Desarrollo: Vite con recarga en caliente y proxy de /api hacia uvicorn
+.venv/bin/uvicorn api.index:app --port 8000          # terminal 1
+npm run dev --prefix web                              # terminal 2: http://127.0.0.1:5173
+# (TILL_API=http://host:puerto cambia el destino del proxy)
+```
+
+Las bases SQLite de la demo van a `datos/` (o a `TILL_DATOS`, si se define) y arrancan limpias en
+cada inicio.
+
+### Recorrido en un navegador real
+
+`web/scripts/recorrido.mjs` maneja Chrome con `puppeteer-core` (no es dependencia del proyecto: se le
+pasa la ruta del paquete) y recorre un retiro exitoso con teclado, un atasco con reversa, un enlace
+caído con reintentos hasta el 0430, un corte de energía con reinicio, depósito, pago de crédito,
+remesa, un rechazo por fondos insuficientes, la flota de 15 000 cajeros, la versión en inglés y la vista
+de celular. Falla si hay errores de consola o violaciones de CSP, y deja capturas en `web/capturas/`.
+
+```bash
+TILL_URL=http://127.0.0.1:8000 PUPPETEER_CORE=/ruta/a/node_modules/puppeteer-core npm run recorrido --prefix web
+```
+
+### Lo que la API agrega para la demo
+
+- `crear_app(prefijo="/api")` monta las mismas rutas bajo `/api`; `till.api.app:app` sigue en la raíz.
+- Encabezado `X-Till-Sesion`: cada pestaña tiene su propia red (banco, cajero, bitácora, libro), así la
+  falla que arma una persona no la dispara otra. Hay tope de sesiones y se descartan las inactivas.
+- `GET /cajeros/{t}/tablero` (todo lo que la página pinta, en una llamada), los mensajes ISO 8583 y el
+  comprobante en `GET /operaciones/{id}`, `GET /iso/mensajes`, `GET /enlace/fallas` y
+  `POST /reversas/drenar?respetar_espera=true` (un reintento sólo de lo que ya cumplió su espera).
+
+## Desplegar en Vercel
+
+El repositorio está listo para Vercel, **sin desplegar**. `vercel.json` define todo:
+
+- **Front estático:** `npm ci --prefix web` y `npm run build --prefix web`; se publica `web/dist`.
+- **API:** `api/index.py` es la función de Python (3.12, ver `.python-version` y `requires-python`) y
+  atiende `/api/*` (reescritura a `/api/index`). Instala sólo `requirements.txt` (FastAPI, uvicorn,
+  pyiso8583).
+- **Sistema de archivos:** en Vercel es de sólo lectura salvo `/tmp`; con la variable `VERCEL` presente,
+  las bases SQLite (bitácora y libro mayor) van a `/tmp/till`.
+- **Encabezados:** la misma CSP y encabezados de seguridad que `api/index.py` usa en local (una prueba
+  verifica que coincidan); caché inmutable para `/assets/*`.
+
+Pasos:
+
+1. Subir el repositorio a GitHub y, en Vercel, «Add New → Project» e importarlo. *Framework preset:*
+   Other; *Root directory:* la raíz del repo (no `web/`). Vercel toma el resto de `vercel.json`.
+2. No hacen falta variables de entorno. Opcional: `TILL_LLAVE_TOKEN` para la llave de tokenización.
+3. Con la CLI, lo mismo: `vercel` (vista previa) y `vercel --prod`.
+
+Límites de la demo en una plataforma sin servidor:
+
+- La red simulada vive en la memoria de la instancia de la función. Si Vercel arranca una instancia
+  nueva, esa red empieza de cero; la página lo detecta (campo `instancia`) y lo avisa.
+- Entre solicitudes la plataforma puede congelar el ciclo de fondo que reenvía reversas; por eso la
+  página pide un reintento por segundo mientras haya reversas pendientes, respetando la espera
+  exponencial del núcleo.
+- `/api/docs` está apagado en la entrada web porque Swagger carga desde una CDN que la CSP no permite;
+  el contrato queda en `/api/openapi.json`.
+- La CSP no fija `frame-ancestors`, para que el portafolio pueda incrustar la demo si quiere; si no se
+  va a incrustar, conviene agregar `frame-ancestors 'none'` en `vercel.json` y en `api/index.py`.
+
 ## Resultados medidos
 
 Medidos el 17-nov-2026 en una laptop de desarrollo (12 hilos, Linux), Python 3.12.3:
 
-- `pytest`: **77 pruebas aprobadas** en ~8.6 s (la mayor parte es `fsync` de SQLite con
+- `pytest`: **92 pruebas aprobadas** en ~10.4 s (la mayor parte es `fsync` de SQLite con
   `synchronous=FULL`): 34 de escenarios de falla, 1 de propiedades con 60 secuencias aleatorias,
-  9 de API, 9 de dispositivos, 8 de ISO 8583 y host, 5 de mezcla de billetes, 4 de libro mayor,
-  4 de flota y 3 de cuadre.
+  9 de API, 7 de la API para la demo web (prefijo `/api`, sesiones, tablero, traza, validación del
+  campo 103), 4 de la entrada de Vercel, 4 de la traza ISO 8583, 9 de dispositivos, 8 de ISO 8583 y
+  host, 5 de mezcla de billetes, 4 de libro mayor, 4 de flota y 3 de cuadre.
+- Demo web: `npm run build` produce 219 KB de JavaScript (70 KB comprimido) y 22 KB de CSS. El
+  recorrido en Chrome (25 pasos, ver arriba) terminó sin errores de consola ni violaciones de CSP; la
+  flota de 15 000 cajeros × 24 h tardó 0.67–0.77 s en el servidor según la corrida.
 - Benchmark de flota con 15 000 cajeros × 24 h: **0.77 s** para el modelo agregado
   (≈2.3 millones de operaciones simuladas, ≈3.1 millones de operaciones/s) y **1.02 s** en total
   (1.08 s de reloj para el proceso completo, 32 MB de memoria máxima) incluyendo una muestra de
@@ -217,7 +321,11 @@ Lo que está **simulado o simplificado**:
   monitoreo remoto ni ruteo de traslado de valores (el simulador sólo estima el día de reabasto).
 - **Flota**: el modelo agregado no ejecuta la máquina de estados por cajero; la exactitud transaccional
   la cubre la muestra de alta fidelidad.
-- **Etapa 2 (IA)**: no implementada; sólo diseñada en `docs/etapas.md`.
+- **Etapa 2 (IA)**: no implementada; sólo diseñada en `docs/etapas.md`. En la demo web, el asistente
+  de voz de la pantalla es un aviso de la Etapa 2, y donde el render dice «Identidad verificada» la demo
+  muestra la tarjeta leída: en la Etapa 1 no hay verificación de identidad.
+- **Demo web en Vercel**: la red simulada vive en la memoria de cada instancia de la función (ver
+  [Desplegar en Vercel](#desplegar-en-vercel)); no es un entorno multiusuario persistente.
 
 ## Licencia
 
