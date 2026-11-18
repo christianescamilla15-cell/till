@@ -28,7 +28,7 @@ from till.api.app import crear_app  # noqa: E402
 # Los mismos valores que vercel.json (una prueba verifica que coincidan).
 CSP = (
     "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; font-src 'self'; "
-    "connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'"
+    "connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"
 )
 ENCABEZADOS = {
     "Content-Security-Policy": CSP,

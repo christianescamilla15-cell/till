@@ -274,8 +274,9 @@ Límites de la demo en una plataforma sin servidor:
   exponencial del núcleo.
 - `/api/docs` está apagado en la entrada web porque Swagger carga desde una CDN que la CSP no permite;
   el contrato queda en `/api/openapi.json`.
-- La CSP no fija `frame-ancestors`, para que el portafolio pueda incrustar la demo si quiere; si no se
-  va a incrustar, conviene agregar `frame-ancestors 'none'` en `vercel.json` y en `api/index.py`.
+- La CSP fija `frame-ancestors 'none'`: la demo no se deja incrustar en otras páginas (el portafolio la
+  enlaza en su propia pestaña). Si algún día se incrusta, hay que abrir ese origen en `vercel.json` y en
+  `api/index.py` a la vez (una prueba verifica que coincidan).
 
 ## Resultados medidos
 
