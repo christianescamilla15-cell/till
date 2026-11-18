@@ -85,3 +85,15 @@ def test_directorio_de_datos_en_vercel(monkeypatch, tmp_path):
     assert str(directorio_datos()).endswith("/till") and "tmp" in str(directorio_datos())
     monkeypatch.setenv("TILL_DATOS", str(tmp_path))
     assert directorio_datos() == tmp_path
+
+
+def test_destino_fuera_del_campo_103_se_rechaza_antes_de_operar(web):
+    s = _s("sesion-destino")
+    for destino in ("Ana López", "X" * 29):
+        r = web.post(f"/api/cajeros/{T}/operaciones", headers=s | {"Idempotency-Key": f"r-{len(destino)}"},
+                     json={"tipo": "remesa", "pan": PAN, "billetes": {"200": 3}, "destino": destino})
+        assert r.status_code == 422 and "campo 103" in r.json()["detail"]
+    assert web.get(f"/api/cajeros/{T}/tablero", headers=s).json()["ultima_operacion"] is None  # nada empezó
+    ok = web.post(f"/api/cajeros/{T}/operaciones", headers=s | {"Idempotency-Key": "r-ok"},
+                  json={"tipo": "remesa", "pan": PAN, "billetes": {"200": 3}, "destino": "Ana Lopez"}).json()
+    assert ok["estado"] == "CONFIRMADA" and ok["autorizacion"]

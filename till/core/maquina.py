@@ -78,6 +78,19 @@ class Solicitud:
             raise SolicitudInvalida("un ingreso de efectivo necesita billetes")
         if self.tipo in ("pago_credito", "remesa") and not self.destino:
             raise SolicitudInvalida("pago de crédito y remesa necesitan destino")
+        if self.destino is not None and not destino_valido(self.destino):
+            # Se valida aquí, antes de tocar dispositivos: si el campo 103 no se pudiera codificar,
+            # la 0200 fallaría con la operación ya en AUTORIZANDO y el efectivo en escrow.
+            raise SolicitudInvalida(
+                f"el destino viaja en el campo 103 de ISO 8583: hasta {MAX_DESTINO} caracteres ASCII imprimibles"
+            )
+
+
+MAX_DESTINO = 28  # campo 103 (LLVAR, ASCII)
+
+
+def destino_valido(destino: str) -> bool:
+    return 0 < len(destino) <= MAX_DESTINO and destino.isascii() and destino.isprintable()
 
 
 @dataclass
