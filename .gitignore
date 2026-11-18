@@ -10,3 +10,10 @@ datos/
 *.sqlite3
 *.sqlite3-wal
 *.sqlite3-shm
+
+# Demo web
+web/node_modules/
+web/dist/
+# Capturas del recorrido de más de 300 KB: se quedan en disco, fuera del repositorio
+web/capturas/02-comprobante-y-cuadre.png
+web/capturas/07-reinicio-y-recuperacion.png
