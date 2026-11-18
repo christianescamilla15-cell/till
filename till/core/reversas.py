@@ -54,7 +54,11 @@ class ReenvioReversas:
         self.terminales[dt.terminal] = dt
 
     async def intentar(self, rev: dict[str, Any]) -> bool:
-        if rev["id"] in self._en_vuelo or rev["estado"] != "PENDIENTE":
+        if rev["id"] in self._en_vuelo:
+            return False
+        # Se relee: otro intento (el inmediato del cajero o el ciclo de fondo) pudo acusarla ya.
+        rev = self.bitacora.reversa_de(rev["tx_id"]) or rev
+        if rev["estado"] != "PENDIENTE":
             return False
         dt = self.terminales[rev["terminal"]]
         self._en_vuelo.add(rev["id"])
