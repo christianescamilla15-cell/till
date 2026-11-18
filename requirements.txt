@@ -1,0 +1,9 @@
+# Dependencias de ejecución
+fastapi==0.163.2
+uvicorn==0.54.0
+pyiso8583==4.0.1   # licencia MIT (verificada en el paquete instalado)
+
+# Pruebas
+pytest==9.2.0
+hypothesis==6.170.15
+httpx==0.28.1      # lo requiere fastapi.testclient

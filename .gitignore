@@ -1,0 +1,12 @@
+# Entorno local
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.hypothesis/
+
+# Datos de ejecución (bitácoras SQLite del simulador)
+datos/
+*.sqlite3
+*.sqlite3-wal
+*.sqlite3-shm
