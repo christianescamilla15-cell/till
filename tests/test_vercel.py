@@ -1,4 +1,4 @@
-"""La entrada de Vercel (api/index.py): rutas bajo /api, encabezados de seguridad y vercel.json."""
+"""La entrada local (api/index.py) y vercel.json: rutas bajo /api, encabezados de seguridad iguales y sitio estático."""
 
 import json
 from pathlib import Path
@@ -23,7 +23,10 @@ def test_api_bajo_prefijo_con_encabezados(entrada):
     r = c.get("/api/salud", headers={"X-Till-Sesion": "sesion-vercel"})
     assert r.status_code == 200 and r.json()["cajeros"] == 1
     assert r.headers["content-security-policy"] == index.CSP
-    assert "unsafe" not in index.CSP and "default-src 'self'" in index.CSP
+    # Pyodide sólo necesita compilar WebAssembly: nada de 'unsafe-eval' ni 'unsafe-inline'.
+    assert "'unsafe-eval'" not in index.CSP and "'unsafe-inline'" not in index.CSP
+    assert "'wasm-unsafe-eval'" in index.CSP and "default-src 'self'" in index.CSP
+    assert "frame-ancestors 'none'" in index.CSP
     assert c.get("/api/docs").status_code == 404  # Swagger usa una CDN: fuera de la demo
     assert c.get("/api/openapi.json").status_code == 200
 
@@ -38,8 +41,10 @@ def test_bases_en_el_directorio_de_datos(entrada, tmp_path):
 def test_vercel_json_coincide_con_la_entrada(entrada):
     index, _ = entrada
     cfg = json.loads((RAIZ / "vercel.json").read_text(encoding="utf-8"))
-    assert cfg["outputDirectory"] == "web/dist" and "api/index.py" in cfg["functions"]
-    assert {"source": "/api/(.*)", "destination": "/api/index"} in cfg["rewrites"]
+    # La demo publicada es estática: la API corre en el navegador, no hay función ni reescrituras a /api.
+    assert cfg["outputDirectory"] == "web/dist" and "functions" not in cfg and "rewrites" not in cfg
+    ignorados = (RAIZ / ".vercelignore").read_text(encoding="utf-8").split()
+    assert "api/" in ignorados and "requirements.txt" in ignorados
     globales = next(h["headers"] for h in cfg["headers"] if h["source"] == "/(.*)")
     assert {h["key"]: h["value"] for h in globales} == index.ENCABEZADOS
 

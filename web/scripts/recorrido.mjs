@@ -50,6 +50,14 @@ const texto = (page, t) => page.locator(`::-p-text(${t})`)
 const boton = (page, t) => page.locator(`button::-p-text(${t})`)
 const esperarTexto = (page, t, timeout = 15_000) => page.waitForFunction(
   (s) => document.body.innerText.includes(s), { timeout, polling: 100 }, t)
+// La API corre en el navegador: la primera carga baja Pyodide y arranca la red antes de atender.
+async function esperarMotor(page, cual) {
+  const t0 = Date.now()
+  await page.waitForSelector('.motor[data-etapa="listo"], .motor[data-etapa="error"]', { timeout: 120_000 })
+  const etapa = await page.$eval('.motor', (e) => e.dataset.etapa)
+  if (etapa !== 'listo') throw new Error(`el motor no arrancó: ${await page.$eval('.motor', (e) => e.textContent)}`)
+  paso(`${cual}: motor listo en ${((Date.now() - t0) / 1000).toFixed(1)} s tras cargar la página`)
+}
 const captura = async (page, nombre, selector = null) => {
   const ruta = join(SALIDA, nombre)
   // La barra fija taparía parte del elemento: se suelta sólo para la captura (CSSOM, la CSP lo permite).
@@ -80,7 +88,8 @@ async function aReposo(page) {
 try {
   // ---------------------------------------------------------------- escritorio
   const page = await nuevaPagina(1440, 1000)
-  await page.goto(URL_BASE, { waitUntil: 'networkidle0' })
+  await page.goto(URL_BASE, { waitUntil: 'domcontentloaded' })
+  await esperarMotor(page, 'escritorio')
   await page.waitForSelector('.pantalla[data-pantalla="reposo"]')
   await page.waitForFunction(() => document.querySelectorAll('#tarjeta-prueba option').length === 4)
   paso('cargó la demo: pantalla de reposo y 4 tarjetas de prueba')
@@ -203,7 +212,7 @@ try {
   await page.locator('.zona-flota button[type="submit"]').click()
   await page.waitForSelector('.flota-resultado', { timeout: 60_000 })
   const tiempo = await page.$eval('.tiles .tile:last-child .tile-valor', (x) => x.textContent)
-  paso(`flota de 15 000 cajeros simulada en ${tiempo} (servidor)`)
+  paso(`flota de 15 000 cajeros simulada en ${tiempo} (en el navegador)`)
   await boton(page, 'Correr la muestra').click()
   await page.waitForSelector('.muestra-resultado', { timeout: 60_000 })
   paso(`muestra: ${await page.$eval('.muestra-resultado', (x) => x.textContent)}`)
@@ -224,7 +233,8 @@ try {
 
   // ---------------------------------------------------------------- celular
   const movil = await nuevaPagina(390, 844, true)
-  await movil.goto(URL_BASE, { waitUntil: 'networkidle0' })
+  await movil.goto(URL_BASE, { waitUntil: 'domcontentloaded' })
+  await esperarMotor(movil, 'celular')
   await movil.waitForSelector('.pantalla[data-pantalla="reposo"]')
   await boton(movil, 'Acercar tarjeta de prueba').click()
   await movil.waitForSelector('.pantalla[data-pantalla="menu"]')

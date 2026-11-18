@@ -1,6 +1,6 @@
 // La demo: cuatro zonas sobre la API real de Till (cajero, taller de fallas, libros y flota).
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { api, idAleatorio, nuevaSesion } from './api.js'
+import { api, idAleatorio, MOTOR, nuevaSesion, suscribirMotor } from './api.js'
 import { Idioma, IDIOMAS, idiomaInicial, traductor } from './i18n.js'
 import Cajero from './cajero/Cajero.jsx'
 import Taller from './taller/Taller.jsx'
@@ -28,6 +28,9 @@ export default function App() {
   const [epoca, setEpoca] = useState(0) // sube al empezar cada operación (los «cambios» de los libros se cuentan desde ahí)
   const txRef = useRef(null)
   const instanciaRef = useRef(null)
+  const [motor, setMotor] = useState({ etapa: 'inactivo' })
+
+  useEffect(() => suscribirMotor(setMotor), [])
 
   useEffect(() => {
     document.documentElement.lang = idioma
@@ -54,7 +57,7 @@ export default function App() {
         tx ? api.get(`/operaciones/${tx}`).catch((e) => (e.status === 404 ? null : Promise.reject(e))) : null,
       ])
       if (instanciaRef.current && tab.instancia !== instanciaRef.current) {
-        // Otra instancia del servidor (en Vercel puede pasar): su red empezó de cero.
+        // El motor arrancó de nuevo (o, con VITE_TILL_MOTOR=servidor, otra instancia de uvicorn): red limpia.
         setAviso(true)
         limpiarVista()
       } else if (tx && tx === txRef.current) {
@@ -221,6 +224,13 @@ export default function App() {
             <p className="intro-regla">{t('intro_regla')}</p>
           </section>
 
+          {MOTOR === 'navegador' && motor.etapa !== 'inactivo' && (
+            <p className={'motor' + (motor.etapa === 'error' ? ' motor-error' : '')} data-etapa={motor.etapa} role="status" aria-live="polite">
+              {motor.etapa === 'listo'
+                ? t('motor_listo', { python: motor.detalle?.python || '3' })
+                : t('motor_' + motor.etapa, { detalle: motor.detalle || '' })}
+            </p>
+          )}
           {aviso && (
             <div className="aviso" role="status">
               <p>{t('aviso_instancia')}</p>
@@ -271,7 +281,7 @@ export default function App() {
 
         <footer className="pie">
           <p>{t('pie_simulado')}</p>
-          <p>{t('pie_autor')} <a href="/api/openapi.json">{t('pie_api')}</a></p>
+          <p>{t('pie_autor')} <a href="https://github.com/christianescamilla15-cell/till" target="_blank" rel="noopener noreferrer">{t('pie_codigo')}</a></p>
         </footer>
       </div>
     </Idioma.Provider>

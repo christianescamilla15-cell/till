@@ -5,6 +5,8 @@ Del dispositivo al centro de datos: reciclador de efectivo, lector EMV, enlace I
 libro mayor de partida doble, reversas que sobreviven a un apagón, cuadre de fin de día y un simulador
 de flota que corre los 15 000 cajeros en menos de un segundo.
 
+**Demo en vivo: [till-cajero.vercel.app](https://till-cajero.vercel.app)** — la API corre en tu navegador.
+
 > Todo lo físico es simulado. Este repositorio no controla hardware real ni procesa tarjetas reales:
 > sólo acepta PANs de prueba públicos. El diseño de hardware de referencia está en
 > [`docs/hardware.md`](docs/hardware.md).
@@ -113,7 +115,8 @@ stateDiagram-v2
 | `till/api/` | API FastAPI: operaciones por cajero, inyección de fallas, reinicio, reversas, traza ISO 8583, libro mayor, cuadre y métricas de flota. Una red simulada por visitante (encabezado `X-Till-Sesion`) y las mismas rutas montables bajo `/api` para la demo web. Documentación interactiva en `/docs`. |
 | `till/host/traza.py` | Traza de los mensajes ISO 8583 que viajan al banco (solicitud, respuesta o lo que pasó en su lugar), con el PAN enmascarado y sin el campo 55: es lo que la demo muestra. |
 | `web/` | Demo web (Vite + React, sin librerías de UI): el cajero, el taller de fallas, los libros y la flota. |
-| `api/index.py` | Entrada de la demo: la API bajo `/api` como función de Python en Vercel; en local también sirve `web/dist` con la misma CSP. |
+| `api/index.py` | Entrada local: la API bajo `/api` y `web/dist` con la misma CSP que la demo publicada (que no la usa: corre la API en el navegador). |
+| `web/src/motor/` | El motor de la demo publicada: Pyodide en un worker y el puente ASGI que entrega cada solicitud de la página a la app FastAPI. |
 
 ### Qué pasa con cada falla
 
@@ -204,21 +207,44 @@ la API real del núcleo (nada está pregrabado).
 Español e inglés (selector ES/EN o `?lang=en`). Sin animaciones decorativas, contraste AA, foco visible,
 todo operable con teclado y, en celular, las zonas se apilan con el cajero primero. Todo se sirve desde
 el mismo origen (tipografías Noto Sans con licencia OFL en `web/public/fonts`) y funciona con una CSP
-estricta: `default-src 'self'`, sin `eval` ni estilos en línea.
+estricta: `default-src 'self'`, sin `eval` ni estilos en línea; lo único extra es `'wasm-unsafe-eval'`,
+que permite compilar WebAssembly (no habilita `eval` de JavaScript).
+
+### Dónde corre la API: en el navegador
+
+La demo publicada no tiene servidor. La página carga **Pyodide** (CPython 3.14 compilado a
+WebAssembly) en un *web worker* y le entrega cada solicitud `/api/...` a la misma app FastAPI de
+`till/api`, como una llamada ASGI (`web/src/motor/puente.py`). Es el mismo código que pasa las pruebas;
+las bases SQLite van al sistema de archivos en memoria del worker.
+
+Por qué: la red simulada (banco, cajero, bitácora, libro, reversas pendientes) vive en memoria, y una
+plataforma sin servidor reparte las solicitudes de una misma pestaña entre instancias que no comparten
+memoria. Medido en Vercel con la API como función de Python: 24 solicitudes simultáneas cayeron en
+9 instancias distintas, y el comprobante de un retiro llegaba a una instancia que no conocía la
+operación. En el navegador cada pestaña tiene su red completa, el ciclo de fondo que reenvía reversas
+nunca se congela y no hay estado del lado del servidor.
+
+El costo es la primera carga: ~7 MB comprimidos (intérprete, biblioteca estándar y 12 paquetes:
+FastAPI, Starlette, Pydantic, pyiso8583…), que después quedan en caché. `web/scripts/preparar_motor.mjs`
+los prepara antes de cada build: copia el intérprete del paquete npm `pyodide`, descarga sólo los
+paquetes necesarios verificando el sha256 de su lockfile (FastAPI sin httpx ni jinja2) y empaqueta el
+código de `till/`. Con `VITE_TILL_MOTOR=servidor` la página usa en cambio uvicorn por HTTP.
 
 ### Levantarla en local
 
 Requisitos: Python 3.12 y Node 18 o posterior.
 
 ```bash
-# Tal como se publica: front construido + API, con la misma CSP de producción
+# Tal como se publica (API en el navegador), servido con la misma CSP de producción
 npm ci --prefix web && npm run build --prefix web
 .venv/bin/uvicorn api.index:app --port 8000          # http://127.0.0.1:8000
 
-# Desarrollo: Vite con recarga en caliente y proxy de /api hacia uvicorn
+# Desarrollo: Vite con recarga en caliente (la API también corre en el navegador)
+npm run dev --prefix web                              # http://127.0.0.1:5173
+
+# Depurar la API con sus registros: la página va por HTTP a uvicorn
 .venv/bin/uvicorn api.index:app --port 8000          # terminal 1
-npm run dev --prefix web                              # terminal 2: http://127.0.0.1:5173
-# (TILL_API=http://host:puerto cambia el destino del proxy)
+VITE_TILL_MOTOR=servidor npm run dev --prefix web     # terminal 2 (TILL_API cambia el destino del proxy)
 ```
 
 Las bases SQLite de la demo van a `datos/` (o a `TILL_DATOS`, si se define) y arrancan limpias en
@@ -247,36 +273,18 @@ TILL_URL=http://127.0.0.1:8000 PUPPETEER_CORE=/ruta/a/node_modules/puppeteer-cor
 
 ## Desplegar en Vercel
 
-El repositorio está listo para Vercel, **sin desplegar**. `vercel.json` define todo:
+Publicada en [till-cajero.vercel.app](https://till-cajero.vercel.app). Es un sitio estático; `vercel.json`
+define todo:
 
-- **Front estático:** `npm ci --prefix web` y `npm run build --prefix web`; se publica `web/dist`.
-- **API:** `api/index.py` es la función de Python (3.12, ver `.python-version` y `requires-python`) y
-  atiende `/api/*` (reescritura a `/api/index`). Instala sólo `requirements.txt` (FastAPI, uvicorn,
-  pyiso8583).
-- **Sistema de archivos:** en Vercel es de sólo lectura salvo `/tmp`; con la variable `VERCEL` presente,
-  las bases SQLite (bitácora y libro mayor) van a `/tmp/till`.
+- **Build:** `npm ci --prefix web` y `npm run build --prefix web` (que antes prepara el motor); se publica
+  `web/dist`. `.vercelignore` deja fuera `api/` y los archivos de Python: no se crea ninguna función.
 - **Encabezados:** la misma CSP y encabezados de seguridad que `api/index.py` usa en local (una prueba
-  verifica que coincidan); caché inmutable para `/assets/*`.
-
-Pasos:
-
-1. Subir el repositorio a GitHub y, en Vercel, «Add New → Project» e importarlo. *Framework preset:*
-   Other; *Root directory:* la raíz del repo (no `web/`). Vercel toma el resto de `vercel.json`.
-2. No hacen falta variables de entorno. Opcional: `TILL_LLAVE_TOKEN` para la llave de tokenización.
-3. Con la CLI, lo mismo: `vercel` (vista previa) y `vercel --prod`.
-
-Límites de la demo en una plataforma sin servidor:
-
-- La red simulada vive en la memoria de la instancia de la función. Si Vercel arranca una instancia
-  nueva, esa red empieza de cero; la página lo detecta (campo `instancia`) y lo avisa.
-- Entre solicitudes la plataforma puede congelar el ciclo de fondo que reenvía reversas; por eso la
-  página pide un reintento por segundo mientras haya reversas pendientes, respetando la espera
-  exponencial del núcleo.
-- `/api/docs` está apagado en la entrada web porque Swagger carga desde una CDN que la CSP no permite;
-  el contrato queda en `/api/openapi.json`.
+  verifica que coincidan); caché inmutable para `/assets/*` y para el intérprete en
+  `/motor/pyodide-<versión>/*`. `till.json` (el código de Till) se revalida en cada visita.
 - La CSP fija `frame-ancestors 'none'`: la demo no se deja incrustar en otras páginas (el portafolio la
-  enlaza en su propia pestaña). Si algún día se incrusta, hay que abrir ese origen en `vercel.json` y en
-  `api/index.py` a la vez (una prueba verifica que coincidan).
+  enlaza en su propia pestaña).
+
+Con la CLI: `vercel` (vista previa) y `vercel --prod`. No hacen falta variables de entorno.
 
 ## Resultados medidos
 
@@ -285,11 +293,13 @@ Medidos el 17-nov-2026 en una laptop de desarrollo (12 hilos, Linux), Python 3.1
 - `pytest`: **92 pruebas aprobadas** en ~10.4 s (la mayor parte es `fsync` de SQLite con
   `synchronous=FULL`): 34 de escenarios de falla, 1 de propiedades con 60 secuencias aleatorias,
   9 de API, 7 de la API para la demo web (prefijo `/api`, sesiones, tablero, traza, validación del
-  campo 103), 4 de la entrada de Vercel, 4 de la traza ISO 8583, 9 de dispositivos, 8 de ISO 8583 y
+  campo 103), 4 de la entrada local y `vercel.json`, 4 de la traza ISO 8583, 9 de dispositivos, 8 de ISO 8583 y
   host, 5 de mezcla de billetes, 4 de libro mayor, 4 de flota y 3 de cuadre.
-- Demo web: `npm run build` produce 219 KB de JavaScript (70 KB comprimido) y 22 KB de CSS. El
-  recorrido en Chrome (25 pasos, ver arriba) terminó sin errores de consola ni violaciones de CSP; la
-  flota de 15 000 cajeros × 24 h tardó 0.67–0.77 s en el servidor según la corrida.
+- Demo web (18-nov-2026): `npm run build` produce 221 KB de JavaScript (70 KB comprimido), 22 KB de
+  CSS y el motor (Pyodide 314.0.8 con Python 3.14.2 y 12 paquetes, ~7 MB comprimidos). El recorrido en
+  Chrome (27 pasos, ver arriba) terminó sin errores de consola ni violaciones de CSP; el motor quedó listo
+  3.0–3.4 s después de cargar la página (en local) y la flota de 15 000 cajeros × 24 h tardó 1.39 s
+  dentro del navegador (0.67–0.77 s con CPython nativo).
 - Benchmark de flota con 15 000 cajeros × 24 h: **0.77 s** para el modelo agregado
   (≈2.3 millones de operaciones simuladas, ≈3.1 millones de operaciones/s) y **1.02 s** en total
   (1.08 s de reloj para el proceso completo, 32 MB de memoria máxima) incluyendo una muestra de
@@ -325,8 +335,8 @@ Lo que está **simulado o simplificado**:
 - **Etapa 2 (IA)**: no implementada; sólo diseñada en `docs/etapas.md`. En la demo web, el asistente
   de voz de la pantalla es un aviso de la Etapa 2, y donde el render dice «Identidad verificada» la demo
   muestra la tarjeta leída: en la Etapa 1 no hay verificación de identidad.
-- **Demo web en Vercel**: la red simulada vive en la memoria de cada instancia de la función (ver
-  [Desplegar en Vercel](#desplegar-en-vercel)); no es un entorno multiusuario persistente.
+- **Demo web**: la red simulada vive en la pestaña; al recargar empieza de cero. La primera visita baja
+  ~7 MB (ver [Dónde corre la API](#dónde-corre-la-api-en-el-navegador)).
 
 ## Licencia
 

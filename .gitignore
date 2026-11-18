@@ -19,3 +19,6 @@ web/capturas/02-comprobante-y-cuadre.png
 web/capturas/07-reinicio-y-recuperacion.png
 .vercel
 .env*
+
+# Motor de la demo (Pyodide y paquetes): lo genera web/scripts/preparar_motor.mjs
+web/public/motor/

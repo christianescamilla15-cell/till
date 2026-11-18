@@ -22,11 +22,21 @@ const T = {
     'Rule: a transaction does not count until the device confirms and the bank acknowledges. Only public test cards are accepted.',
   ],
   aviso_instancia: [
-    'El servidor arrancó una instancia nueva y la demo empezó de cero: el cajero, el banco y los libros están limpios.',
-    'The server started a new instance and the demo restarted from scratch: teller, bank and books are clean.',
+    'El motor de la demo se reinició y empezó de cero: el cajero, el banco y los libros están limpios.',
+    'The demo engine restarted from scratch: teller, bank and books are clean.',
   ],
   cerrar: ['Cerrar', 'Dismiss'],
   error_api: ['No hay conexión con la API de Till ({detalle}).', 'Cannot reach the Till API ({detalle}).'],
+  motor_descargando: [
+    'Arrancando el núcleo de Till en tu navegador: Python sobre WebAssembly, unos 7 MB la primera vez (después queda en caché).',
+    'Starting Till’s core in your browser: Python on WebAssembly, about 7 MB the first time (cached afterwards).',
+  ],
+  motor_arrancando: ['Armando la red simulada: banco, cajero y libro mayor…', 'Building the simulated network: bank, teller and ledger…'],
+  motor_listo: [
+    'La API de Till corre en tu navegador (Python {python} sobre WebAssembly): cada pestaña tiene su propia red y nada sale de tu equipo.',
+    'Till’s API runs in your browser (Python {python} on WebAssembly): each tab has its own network and nothing leaves your device.',
+  ],
+  motor_error: ['El núcleo de Till no pudo arrancar en este navegador ({detalle}).', 'Till’s core could not start in this browser ({detalle}).'],
   reintentar: ['Reintentar', 'Retry'],
 
   // zonas
@@ -305,7 +315,7 @@ const T = {
   kpi_reversas: ['Reversas', 'Reversals'],
   kpi_reversas_d: ['{parciales} parciales', '{parciales} partial'],
   kpi_tiempo: ['Tiempo de cómputo', 'Compute time'],
-  kpi_tiempo_d: ['en el servidor · {ida} ida y vuelta · {cps} cajero-horas/s', 'on the server · {ida} round trip · {cps} teller-hours/s'],
+  kpi_tiempo_d: ['en tu navegador · {ida} en total · {cps} cajero-horas/s', 'in your browser · {ida} in total · {cps} teller-hours/s'],
   reabasto_titulo: ['Reabasto estimado por día', 'Estimated replenishment per day'],
   reabasto_sub: ['Cajeros que bajan del umbral de {umbral} cada día, al ritmo de salida simulado.', 'Tellers dropping below the {umbral} threshold each day at the simulated outflow rate.'],
   reabasto_despues: ['{n} cajeros después de 7 días · {sin} sin necesidad estimada', '{n} tellers after 7 days · {sin} with no estimated need'],
@@ -337,7 +347,7 @@ const T = {
   // pie
   pie_simulado: ['Todo lo físico es simulado: no controla hardware real ni procesa tarjetas reales.', 'Everything physical is simulated: no real hardware, no real cards.'],
   pie_autor: ['Till · implementación de referencia por Christian Hernández Escamilla · código MIT.', 'Till · reference implementation by Christian Hernández Escamilla · MIT license.'],
-  pie_api: ['Contrato OpenAPI de la API (JSON)', 'API OpenAPI contract (JSON)'],
+  pie_codigo: ['Código fuente en GitHub', 'Source code on GitHub'],
 }
 
 export const IDIOMAS = ['es', 'en']

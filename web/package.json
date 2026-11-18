@@ -6,7 +6,10 @@
   "type": "module",
   "license": "MIT",
   "scripts": {
+    "motor": "node scripts/preparar_motor.mjs",
+    "predev": "node scripts/preparar_motor.mjs",
     "dev": "vite",
+    "prebuild": "node scripts/preparar_motor.mjs",
     "build": "vite build",
     "preview": "vite preview",
     "recorrido": "node scripts/recorrido.mjs"
@@ -17,6 +20,7 @@
   },
   "devDependencies": {
     "@vitejs/plugin-react": "4.3.4",
+    "pyodide": "314.0.8",
     "vite": "5.4.11"
   }
 }

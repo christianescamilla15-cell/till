@@ -412,3 +412,7 @@ h4 { font-size: 14px; font-weight: 600; margin: 14px 0 6px; }
   .p-opcion, .p-boton, .falla, .boton { border: 2px solid ButtonText; }
   .columna-barra, .nivel-lleno { background: CanvasText; }
 }
+
+/* estado del motor (la API corre en el navegador): una línea discreta bajo la introducción */
+.motor { margin: 0 0 16px; font-size: 14px; color: var(--suave, #9ca8b4); }
+.motor-error { color: #ffb4a8; }

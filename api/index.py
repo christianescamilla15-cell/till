@@ -1,11 +1,8 @@
-"""Entrada de la demo web: la API de Till bajo /api.
+"""Entrada local de la API y de la demo web: la API de Till bajo /api y el front construido.
 
-En Vercel este archivo es la función de Python que atiende /api/* (vercel.json),
-la CDN sirve el front estático de web/dist y las bases SQLite van a /tmp/till,
-porque el resto del sistema de archivos es de sólo lectura.
-
-En local sirve además el front construido, con los mismos encabezados de
-seguridad que vercel.json (CSP incluida), para probarlo tal como se publica:
+La demo publicada no usa este archivo: es un sitio estático y la página corre la misma API en el navegador
+(Pyodide, ver web/src/motor/). Este servidor queda para trabajar en local y para depurar la API con
+VITE_TILL_MOTOR=servidor; sirve web/dist con los mismos encabezados de seguridad que vercel.json:
 
     npm ci --prefix web && npm run build --prefix web
     .venv/bin/uvicorn api.index:app --port 8000        # http://127.0.0.1:8000
@@ -25,10 +22,11 @@ from starlette.staticfiles import StaticFiles  # noqa: E402
 
 from till.api.app import crear_app  # noqa: E402
 
-# Los mismos valores que vercel.json (una prueba verifica que coincidan).
+# Los mismos valores que vercel.json (una prueba verifica que coincidan). 'wasm-unsafe-eval' es lo único
+# que pide Pyodide: compilar WebAssembly; no habilita eval() de JavaScript.
 CSP = (
-    "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; font-src 'self'; "
-    "connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"
+    "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self'; img-src 'self'; font-src 'self'; "
+    "connect-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"
 )
 ENCABEZADOS = {
     "Content-Security-Policy": CSP,
