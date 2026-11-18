@@ -49,6 +49,13 @@ class BaseDatos:
                 if externa:
                     self.conn.execute("COMMIT")
 
+    def crear_esquema(self, script: str) -> None:
+        """``executescript`` confirma lo pendiente: sólo se usa al arrancar."""
+        with self._candado:
+            if self._profundidad:
+                raise RuntimeError("no se puede crear el esquema dentro de una transacción")
+            self.conn.executescript(script)
+
     def ejecutar(self, sql: str, params: tuple | dict = ()) -> sqlite3.Cursor:
         with self._candado:
             return self.conn.execute(sql, params)
