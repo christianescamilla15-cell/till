@@ -16,7 +16,11 @@ from pathlib import Path
 
 
 class BaseDatos:
-    def __init__(self, ruta: str | Path):
+    def __init__(self, ruta: str | Path, sincrono: str = "FULL"):
+        """``sincrono``: FULL (por omisión) sobrevive a un corte del sistema operativo;
+        NORMAL sólo a la muerte del proceso (suficiente para simulaciones)."""
+        if sincrono not in ("FULL", "NORMAL"):
+            raise ValueError("sincrono debe ser FULL o NORMAL")
         self.ruta = str(ruta)
         if self.ruta != ":memory:":
             Path(self.ruta).parent.mkdir(parents=True, exist_ok=True)
@@ -24,7 +28,7 @@ class BaseDatos:
         self.conn = sqlite3.connect(self.ruta, isolation_level=None, check_same_thread=False)
         self.conn.row_factory = sqlite3.Row
         self.conn.execute("PRAGMA journal_mode=WAL")
-        self.conn.execute("PRAGMA synchronous=FULL")
+        self.conn.execute(f"PRAGMA synchronous={sincrono}")
         self.conn.execute("PRAGMA foreign_keys=ON")
         self._profundidad = 0
         self._candado = threading.RLock()

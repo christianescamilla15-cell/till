@@ -92,6 +92,7 @@ def construir_red(
     carga: Mezcla | None = None,
     timeout_host: float = 2.0,
     latencia: float = 0.0,
+    sincrono: str = "FULL",
 ) -> Red:
     tokenizador = Tokenizador()
     host = HostAutorizador(tokenizador)
@@ -101,15 +102,15 @@ def construir_red(
     for credito, adeudo in CREDITOS_DEMO.items():
         host.alta_credito(credito, dinero.pesos(adeudo))
     transporte = TransporteEnProceso(host, latencia=latencia)
-    red = _armar(str(ruta_db), host, transporte, tokenizador, timeout_host)
+    red = _armar(str(ruta_db), host, transporte, tokenizador, timeout_host, sincrono)
     for i in range(1, cajeros + 1):
         red.agregar_cajero(terminal_id(i), carga, latencia)
     return red
 
 
 def _armar(ruta_db: str, host: HostAutorizador, transporte: TransporteEnProceso, tokenizador: Tokenizador,
-           timeout_host: float) -> Red:
-    db = BaseDatos(ruta_db)
+           timeout_host: float, sincrono: str = "FULL") -> Red:
+    db = BaseDatos(ruta_db, sincrono)
     bitacora = Bitacora(db)
     libro = LibroMayor(db)
     cliente = ClienteHost(transporte, timeout=timeout_host)
