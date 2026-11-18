@@ -107,6 +107,11 @@ const till = {
   paquetes: [...PAQUETES, ...Object.keys(FUERA)],
   archivos: await archivosPython(join(RAIZ, 'till')),
 }
+// Si falta algo esencial (p. ej. una regla de .vercelignore que se lleve till/api/), mejor fallar el build
+// que publicar un motor que no arranca.
+for (const m of ['till/__init__.py', 'till/api/app.py', 'till/api/sesiones.py', 'till/red.py']) {
+  if (!(m in till.archivos)) throw new Error(`motor: falta ${m} en el código de Till`)
+}
 await writeFile(join(MOTOR, 'till.json'), JSON.stringify(till))
 
 console.log(

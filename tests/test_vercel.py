@@ -44,7 +44,7 @@ def test_vercel_json_coincide_con_la_entrada(entrada):
     # La demo publicada es estática: la API corre en el navegador, no hay función ni reescrituras a /api.
     assert cfg["outputDirectory"] == "web/dist" and "functions" not in cfg and "rewrites" not in cfg
     ignorados = (RAIZ / ".vercelignore").read_text(encoding="utf-8").split()
-    assert "api/" in ignorados and "requirements.txt" in ignorados
+    assert "/api/" in ignorados and "/requirements.txt" in ignorados  # anclados: till/api/ sí se publica
     globales = next(h["headers"] for h in cfg["headers"] if h["source"] == "/(.*)")
     assert {h["key"]: h["value"] for h in globales} == index.ENCABEZADOS
 

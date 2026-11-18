@@ -9,8 +9,8 @@ web/capturas/
 .vercel/
 .env*.local
 # La demo publicada es estática: la API corre en el navegador (Pyodide); sin función de Python
-api/
-requirements.txt
-requirements-dev.txt
-.python-version
-pyproject.toml
+/api/
+/requirements.txt
+/requirements-dev.txt
+/.python-version
+/pyproject.toml
