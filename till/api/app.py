@@ -400,12 +400,15 @@ def crear_app(
     prefijo: str = "",
     cajeros_por_sesion: int = 1,
     max_sesiones: int = 50,
+    documentacion: bool = True,
 ) -> FastAPI:
     """Arma la API.
 
     ``prefijo``: dónde se montan las rutas (``""`` o ``"/api"``). La red principal usa ``ruta_db``;
     sin ella, ``directorio_datos()/till-demo.sqlite3``, que se borra al arrancar (la demo arranca
     limpia). Las redes por sesión van a ``sesiones/`` junto a la base principal.
+    ``documentacion=False`` quita /docs y /redoc (cargan Swagger desde una CDN, que la CSP
+    de la demo no permite); el contrato ``openapi.json`` se queda.
     """
 
     @contextlib.asynccontextmanager
@@ -448,8 +451,8 @@ def crear_app(
         version=__version__,
         description="Red de cajeros de sucursal automatizados: implementación de referencia (Etapa 1, todo simulado).",
         lifespan=ciclo_de_vida,
-        docs_url=f"{prefijo}/docs",
-        redoc_url=f"{prefijo}/redoc",
+        docs_url=f"{prefijo}/docs" if documentacion else None,
+        redoc_url=f"{prefijo}/redoc" if documentacion else None,
         openapi_url=f"{prefijo}/openapi.json",
     )
     app.include_router(_rutas(), prefix=prefijo)
