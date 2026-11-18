@@ -1,12 +1,19 @@
-"""API HTTP de Till (FastAPI), pensada para una UI futura.
+"""API HTTP de Till (FastAPI): la usa la demo web de ``web/``.
 
-Expone las operaciones de cada cajero, la inyección de fallas, el libro mayor,
-el cuadre y las métricas de la flota. La red de demostración (banco simulado y
-cajeros simulados) vive en memoria y su bitácora en SQLite; arranca limpia en
-cada inicio porque el hardware simulado no persiste entre ejecuciones.
+Expone las operaciones de cada cajero, la inyección de fallas, la traza ISO
+8583, el libro mayor, el cuadre y las métricas de la flota. La red de
+demostración (banco simulado y cajeros simulados) vive en memoria y su bitácora
+en SQLite; arranca limpia en cada inicio porque el hardware simulado no persiste
+entre ejecuciones.
+
+Cada visitante de la demo puede tener su propia red mandando el encabezado
+``X-Till-Sesion`` (ver :mod:`till.api.sesiones`); sin él se usa la red principal.
 
 Correr:  .venv/bin/uvicorn till.api.app:app --port 8000
 Documentación interactiva: http://127.0.0.1:8000/docs
+
+La demo web monta las mismas rutas bajo ``/api`` (``crear_app(prefijo="/api")``,
+ver ``api/index.py``).
 """
 
 from __future__ import annotations
@@ -14,15 +21,18 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
+import os
 import tempfile
+import uuid
 from collections.abc import AsyncIterator
 from pathlib import Path
 from typing import Any, Literal
 
-from fastapi import FastAPI, Header, HTTPException, Query
+from fastapi import APIRouter, Depends, FastAPI, Header, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
 from till import __version__, dinero
+from till.api.sesiones import Entorno, Sesiones, borrar_base
 from till.core import CajeroFueraDeServicio, Solicitud, SolicitudInvalida
 from till.devices import CorteDeEnergia, FallaNoSoportada, PanNoPermitido
 from till.fleet.muestra import correr_muestra
@@ -34,7 +44,17 @@ from till.seguridad import enmascarar
 
 log = logging.getLogger("till.api")
 
-RUTA_DEMO = Path(__file__).resolve().parents[2] / "datos" / "till-demo.sqlite3"
+
+def directorio_datos() -> Path:
+    """Dónde van las bases SQLite: ``TILL_DATOS``, ``/tmp/till`` en Vercel o ``datos/`` del repo.
+
+    En Vercel el sistema de archivos es de sólo lectura salvo el directorio temporal.
+    """
+    if os.environ.get("TILL_DATOS"):
+        return Path(os.environ["TILL_DATOS"])
+    if os.environ.get("VERCEL"):
+        return Path(tempfile.gettempdir()) / "till"
+    return Path(__file__).resolve().parents[2] / "datos"
 
 
 # -- modelos de entrada --------------------------------------------------------------
@@ -87,64 +107,46 @@ def _con_texto(d: dict[str, Any], campos: tuple[str, ...] = ("monto", "entregado
     return d
 
 
-def crear_app(
-    ruta_db: str | Path | None = None,
-    cajeros: int = 3,
-    reenvio_en_fondo: bool = True,
-    intervalo_reenvio: float = 1.0,
-) -> FastAPI:
-    @contextlib.asynccontextmanager
-    async def ciclo_de_vida(app: FastAPI) -> AsyncIterator[None]:
-        ruta = Path(ruta_db) if ruta_db else RUTA_DEMO
-        if ruta_db is None:
-            for sufijo in ("", "-wal", "-shm"):  # la demo arranca limpia
-                Path(str(ruta) + sufijo).unlink(missing_ok=True)
-        red = construir_red(ruta, cajeros=cajeros)
-        app.state.red = red
-        app.state.flota = None
-        detener = asyncio.Event()
-        tarea = asyncio.create_task(red.reversas.correr(detener, intervalo_reenvio)) if reenvio_en_fondo else None
-        try:
-            yield
-        finally:
-            detener.set()
-            if tarea:
-                await tarea
-            red.cerrar()
+async def entorno_de(request: Request, x_till_sesion: str | None = Header(default=None)) -> Entorno:
+    """La red de la sesión (encabezado ``X-Till-Sesion``) o la principal."""
+    estado = request.app.state
+    if x_till_sesion is None:
+        return estado.principal
+    try:
+        return estado.sesiones.obtener(x_till_sesion)
+    except ValueError as e:
+        raise HTTPException(422, str(e)) from e
 
-    app = FastAPI(
-        title="Till",
-        version=__version__,
-        description="Red de cajeros de sucursal automatizados: implementación de referencia (Etapa 1, todo simulado).",
-        lifespan=ciclo_de_vida,
-    )
 
-    def red_de(app_: FastAPI = app) -> Red:
-        return app_.state.red
+async def red_de(ent: Entorno = Depends(entorno_de)) -> Red:
+    return ent.red
 
-    def cajero_o_404(terminal: str):
-        red = red_de()
-        if terminal not in red.cajeros:
-            raise HTTPException(404, f"no existe el cajero {terminal}")
-        return red.cajeros[terminal]
+
+def cajero_o_404(red: Red, terminal: str):
+    if terminal not in red.cajeros:
+        raise HTTPException(404, f"no existe el cajero {terminal}")
+    return red.cajeros[terminal]
+
+
+def _rutas() -> APIRouter:
+    r = APIRouter()
 
     # -- general ----------------------------------------------------------------------
-    @app.get("/salud", tags=["general"])
-    async def salud() -> dict[str, Any]:
-        red = red_de()
+    @r.get("/salud", tags=["general"])
+    async def salud(request: Request, red: Red = Depends(red_de)) -> dict[str, Any]:
         return {
             "estado": "ok",
             "version": __version__,
+            "instancia": request.app.state.instancia,
             "cajeros": len(red.cajeros),
             "fuera_de_servicio": [t for t, c in red.cajeros.items() if c.caido],
             "libro_balanceado": red.libro.verificar()["balanceado"],
             "reversas_pendientes": len(red.bitacora.reversas_pendientes()),
         }
 
-    @app.get("/catalogo", tags=["general"])
-    async def catalogo() -> dict[str, Any]:
+    @r.get("/catalogo", tags=["general"])
+    async def catalogo(red: Red = Depends(red_de)) -> dict[str, Any]:
         """Lo que una UI necesita para armar formularios: tarjetas de prueba, comandos y fallas."""
-        red = red_de()
         t = next(iter(red.cajeros.values()))
         return {
             "tarjetas_de_prueba": [{"pan": pan, "enmascarado": enmascarar(pan), "cuenta": cta} for pan, cta, _ in TARJETAS_DEMO],
@@ -159,23 +161,23 @@ def crear_app(
         }
 
     # -- cajeros ---------------------------------------------------------------------
-    @app.get("/cajeros", tags=["cajeros"])
-    async def listar_cajeros() -> list[dict[str, Any]]:
-        r = []
-        for t, c in red_de().cajeros.items():
-            r.append({
+    @r.get("/cajeros", tags=["cajeros"])
+    async def listar_cajeros(red: Red = Depends(red_de)) -> list[dict[str, Any]]:
+        res = []
+        for t, c in red.cajeros.items():
+            res.append({
                 "terminal": t,
                 "en_servicio": not c.caido,
                 "efectivo": c.reciclador.valor_total(),
                 "efectivo_texto": dinero.formatear(c.reciclador.valor_total()),
                 "casetes": {d: x.cantidad for d, x in c.reciclador.casetes.items()},
-                "operaciones": red_de().bitacora.conteo_por_estado(t),
+                "operaciones": red.bitacora.conteo_por_estado(t),
             })
-        return r
+        return res
 
-    @app.get("/cajeros/{terminal}", tags=["cajeros"])
-    async def detalle_cajero(terminal: str) -> dict[str, Any]:
-        c = cajero_o_404(terminal)
+    @r.get("/cajeros/{terminal}", tags=["cajeros"])
+    async def detalle_cajero(terminal: str, red: Red = Depends(red_de)) -> dict[str, Any]:
+        c = cajero_o_404(red, terminal)
         return {
             "terminal": terminal,
             "en_servicio": not c.caido,
@@ -184,16 +186,42 @@ def crear_app(
                 {"dispositivo": e.dispositivo, "evento": e.nombre, "momento": e.momento}
                 for d in c.dispositivos.values() for e in list(d.eventos_recientes)[-10:]
             ],
-            "ultimas_operaciones": [_con_texto(x) for x in red_de().bitacora.listar(terminal, 10)],
+            "ultimas_operaciones": [_con_texto(x) for x in red.bitacora.listar(terminal, 10)],
         }
 
-    @app.post("/cajeros/{terminal}/operaciones", tags=["cajeros"])
+    @r.get("/cajeros/{terminal}/tablero", tags=["cajeros"])
+    async def tablero(
+        request: Request, terminal: str, asientos: int = Query(8, ge=1, le=100), red: Red = Depends(red_de)
+    ) -> dict[str, Any]:
+        """Todo lo que la demo pinta en una sola llamada: efectivo, libro, banco, fallas y reversas."""
+        c = cajero_o_404(red, terminal)
+        ultimas = red.bitacora.listar(terminal, 1)
+        return {
+            "instancia": request.app.state.instancia,
+            "terminal": terminal,
+            "en_servicio": not c.caido,
+            "efectivo": c.reciclador.inventario() | {
+                "total": c.reciclador.valor_total(),
+                "capacidad_por_casete": next(iter(c.reciclador.casetes.values())).capacidad,
+            },
+            "libro": {"verificacion": red.libro.verificar(), "asientos": red.libro.asientos(limite=asientos)},
+            "banco": red.host.resumen(),
+            "fallas": {
+                "dispositivos": {n: d.fallas.pendientes() for n, d in c.dispositivos.items()},
+                "enlace": red.transporte.pendientes(),
+            },
+            "reversas_pendientes": red.bitacora.reversas_pendientes(terminal),
+            "ultima_operacion": ultimas[0]["id"] if ultimas else None,
+        }
+
+    @r.post("/cajeros/{terminal}/operaciones", tags=["cajeros"])
     async def operar(
         terminal: str,
         entrada: OperacionEntrada,
         idempotency_key: str | None = Header(default=None),
+        red: Red = Depends(red_de),
     ) -> dict[str, Any]:
-        c = cajero_o_404(terminal)
+        c = cajero_o_404(red, terminal)
         llave = idempotency_key or entrada.llave_idem
         if not llave:
             raise HTTPException(422, "falta la llave de idempotencia (encabezado Idempotency-Key o llave_idem)")
@@ -205,56 +233,61 @@ def crear_app(
             destino=entrada.destino,
         )
         try:
-            r = await c.operar(s, pan=entrada.pan)
+            res = await c.operar(s, pan=entrada.pan)
         except (SolicitudInvalida, PanNoPermitido) as e:
             raise HTTPException(422, str(e)) from e
         except CajeroFueraDeServicio as e:
             raise HTTPException(503, str(e)) from e
         except CorteDeEnergia:
-            ultima = red_de().bitacora.listar(terminal, 1)
+            ultima = red.bitacora.listar(terminal, 1)
             raise HTTPException(503, {
                 "detalle": "corte de energía simulado: el proceso del cajero murió a media operación",
                 "tx_id": ultima[0]["id"] if ultima else None,
                 "siguiente_paso": f"POST /cajeros/{terminal}/reiniciar",
             })
-        return _con_texto(r.como_dict())
+        return _con_texto(res.como_dict())
 
-    @app.get("/cajeros/{terminal}/operaciones", tags=["cajeros"])
-    async def listar_operaciones(terminal: str, limite: int = Query(20, ge=1, le=500)) -> list[dict[str, Any]]:
-        cajero_o_404(terminal)
-        return [_con_texto(x) for x in red_de().bitacora.listar(terminal, limite)]
+    @r.get("/cajeros/{terminal}/operaciones", tags=["cajeros"])
+    async def listar_operaciones(
+        terminal: str, limite: int = Query(20, ge=1, le=500), red: Red = Depends(red_de)
+    ) -> list[dict[str, Any]]:
+        cajero_o_404(red, terminal)
+        return [_con_texto(x) for x in red.bitacora.listar(terminal, limite)]
 
-    @app.get("/operaciones/{tx_id}", tags=["cajeros"])
-    async def detalle_operacion(tx_id: str) -> dict[str, Any]:
-        red = red_de()
+    @r.get("/operaciones/{tx_id}", tags=["cajeros"])
+    async def detalle_operacion(tx_id: str, red: Red = Depends(red_de)) -> dict[str, Any]:
+        """La operación con su historial, su reversa, sus asientos, sus mensajes ISO 8583 y su comprobante."""
         tx = red.bitacora.obtener(tx_id)
         if tx is None:
             raise HTTPException(404, "no existe la operación")
+        hw = red.hardware.get(tx["terminal"])
         return {
             "operacion": _con_texto(tx),
             "historial": red.bitacora.historial(tx_id),
             "reversa": red.bitacora.reversa_de(tx_id),
             "asientos": red.libro.asientos(referencia=tx_id),
+            "mensajes": red.traza.listar(tx["terminal"], rrn=tx["rrn"]) if tx["rrn"] else [],
+            "comprobante": hw.impresora.por_referencia.get(tx_id) if hw else None,
         }
 
-    @app.post("/cajeros/{terminal}/reiniciar", tags=["cajeros"])
-    async def reiniciar(terminal: str) -> dict[str, Any]:
+    @r.post("/cajeros/{terminal}/reiniciar", tags=["cajeros"])
+    async def reiniciar(terminal: str, red: Red = Depends(red_de)) -> dict[str, Any]:
         """Simula reiniciar el proceso del cajero: arranque de dispositivos y recuperación."""
-        cajero_o_404(terminal)
-        nuevo = red_de().crear_cajero(terminal)
+        cajero_o_404(red, terminal)
+        nuevo = red.crear_cajero(terminal)
         return await nuevo.recuperar()
 
-    @app.get("/cajeros/{terminal}/cuadre", tags=["cuadre"])
-    async def cuadre(terminal: str, drenar: bool = True) -> dict[str, Any]:
-        c = cajero_o_404(terminal)
+    @r.get("/cajeros/{terminal}/cuadre", tags=["cuadre"])
+    async def cuadre(terminal: str, drenar: bool = True, red: Red = Depends(red_de)) -> dict[str, Any]:
+        c = cajero_o_404(red, terminal)
         if c.caido:
             raise HTTPException(503, "el cajero está fuera de servicio: reinícielo antes del cuadre")
-        return await cuadrar(c, red_de().host, drenar_reversas=drenar)
+        return await cuadrar(c, red.host, drenar_reversas=drenar)
 
     # -- fallas --------------------------------------------------------------------------
-    @app.post("/cajeros/{terminal}/fallas", tags=["fallas"])
-    async def programar_falla(terminal: str, entrada: FallaEntrada) -> dict[str, Any]:
-        c = cajero_o_404(terminal)
+    @r.post("/cajeros/{terminal}/fallas", tags=["fallas"])
+    async def programar_falla(terminal: str, entrada: FallaEntrada, red: Red = Depends(red_de)) -> dict[str, Any]:
+        c = cajero_o_404(red, terminal)
         try:
             fp = c.dispositivos[entrada.dispositivo].fallas.programar(
                 entrada.falla, entrada.comando, entrada.veces, **entrada.parametros
@@ -263,83 +296,163 @@ def crear_app(
             raise HTTPException(422, str(e)) from e
         return {"programada": fp.como_dict(), "dispositivo": entrada.dispositivo}
 
-    @app.get("/cajeros/{terminal}/fallas", tags=["fallas"])
-    async def fallas_pendientes(terminal: str) -> dict[str, Any]:
-        c = cajero_o_404(terminal)
+    @r.get("/cajeros/{terminal}/fallas", tags=["fallas"])
+    async def fallas_pendientes(terminal: str, red: Red = Depends(red_de)) -> dict[str, Any]:
+        c = cajero_o_404(red, terminal)
         return {n: d.fallas.pendientes() for n, d in c.dispositivos.items()}
 
-    @app.delete("/cajeros/{terminal}/fallas", tags=["fallas"])
-    async def limpiar_fallas(terminal: str) -> dict[str, str]:
-        c = cajero_o_404(terminal)
+    @r.delete("/cajeros/{terminal}/fallas", tags=["fallas"])
+    async def limpiar_fallas(terminal: str, red: Red = Depends(red_de)) -> dict[str, str]:
+        c = cajero_o_404(red, terminal)
         for d in c.dispositivos.values():
             d.fallas.limpiar()
         return {"estado": "sin fallas programadas"}
 
-    @app.post("/enlace/fallas", tags=["fallas"])
-    async def programar_falla_enlace(entrada: FallaEnlaceEntrada) -> dict[str, Any]:
-        """El enlace con el banco es compartido por todos los cajeros de la simulación."""
-        red_de().transporte.programar(entrada.falla, entrada.mti, entrada.veces)
-        return {"pendientes": red_de().transporte.pendientes()}
+    @r.post("/enlace/fallas", tags=["fallas"])
+    async def programar_falla_enlace(entrada: FallaEnlaceEntrada, red: Red = Depends(red_de)) -> dict[str, Any]:
+        """El enlace con el banco es compartido por todos los cajeros de la red."""
+        red.transporte.programar(entrada.falla, entrada.mti, entrada.veces)
+        return {"pendientes": red.transporte.pendientes()}
 
-    @app.delete("/enlace/fallas", tags=["fallas"])
-    async def limpiar_fallas_enlace() -> dict[str, str]:
-        red_de().transporte.limpiar()
+    @r.get("/enlace/fallas", tags=["fallas"])
+    async def fallas_enlace(red: Red = Depends(red_de)) -> dict[str, Any]:
+        return {"pendientes": red.transporte.pendientes()}
+
+    @r.delete("/enlace/fallas", tags=["fallas"])
+    async def limpiar_fallas_enlace(red: Red = Depends(red_de)) -> dict[str, str]:
+        red.transporte.limpiar()
         return {"estado": "sin fallas programadas"}
 
     # -- reversas y host --------------------------------------------------------------
-    @app.get("/reversas", tags=["host"])
-    async def reversas_pendientes() -> list[dict[str, Any]]:
-        return red_de().bitacora.reversas_pendientes()
+    @r.get("/reversas", tags=["host"])
+    async def reversas_pendientes(red: Red = Depends(red_de)) -> list[dict[str, Any]]:
+        return red.bitacora.reversas_pendientes()
 
-    @app.post("/reversas/drenar", tags=["host"])
-    async def drenar_reversas() -> dict[str, int]:
-        return await red_de().reversas.drenar()
+    @r.post("/reversas/drenar", tags=["host"])
+    async def drenar_reversas(respetar_espera: bool = False, red: Red = Depends(red_de)) -> dict[str, int]:
+        """Un intento por reversa pendiente. Con ``respetar_espera``, sólo las que ya cumplieron su
+        espera exponencial: es lo que hace el ciclo de fondo y lo que la demo pide mientras haya
+        reversas pendientes, por si la plataforma congela el proceso entre solicitudes."""
+        return await red.reversas.drenar(respetar_espera=respetar_espera)
 
-    @app.post("/host/eco/{terminal}", tags=["host"])
-    async def eco(terminal: str) -> dict[str, Any]:
-        c = cajero_o_404(terminal)
+    @r.get("/iso/mensajes", tags=["host"])
+    async def mensajes_iso(
+        terminal: str | None = None, limite: int = Query(50, ge=1, le=500), red: Red = Depends(red_de)
+    ) -> list[dict[str, Any]]:
+        """Últimos mensajes ISO 8583 entre los cajeros y el banco (PAN enmascarado, sin campo 55)."""
+        return red.traza.listar(terminal, limite=limite)
+
+    @r.post("/host/eco/{terminal}", tags=["host"])
+    async def eco(terminal: str, red: Red = Depends(red_de)) -> dict[str, Any]:
+        c = cajero_o_404(red, terminal)
         try:
-            ok = await c.cliente.eco(c.datos, red_de().bitacora.siguiente_stan(terminal))
+            ok = await c.cliente.eco(c.datos, red.bitacora.siguiente_stan(terminal))
         except Exception as e:  # tiempo agotado, host caído
             return {"0810": False, "error": f"{type(e).__name__}: {e}"}
         return {"0810": ok}
 
-    @app.get("/host/resumen", tags=["host"])
-    async def resumen_host() -> dict[str, Any]:
-        return red_de().host.resumen()
+    @r.get("/host/resumen", tags=["host"])
+    async def resumen_host(red: Red = Depends(red_de)) -> dict[str, Any]:
+        return red.host.resumen()
 
     # -- libro mayor ------------------------------------------------------------------------
-    @app.get("/libro-mayor/saldos", tags=["libro mayor"])
-    async def saldos(prefijo: str = "") -> dict[str, int]:
-        return red_de().libro.saldos(prefijo)
+    @r.get("/libro-mayor/saldos", tags=["libro mayor"])
+    async def saldos(prefijo: str = "", red: Red = Depends(red_de)) -> dict[str, int]:
+        return red.libro.saldos(prefijo)
 
-    @app.get("/libro-mayor/asientos", tags=["libro mayor"])
-    async def asientos(referencia: str | None = None, limite: int = Query(50, ge=1, le=1000)) -> list[dict[str, Any]]:
-        return red_de().libro.asientos(referencia, limite)
+    @r.get("/libro-mayor/asientos", tags=["libro mayor"])
+    async def asientos(
+        referencia: str | None = None, limite: int = Query(50, ge=1, le=1000), red: Red = Depends(red_de)
+    ) -> list[dict[str, Any]]:
+        return red.libro.asientos(referencia, limite)
 
-    @app.get("/libro-mayor/verificacion", tags=["libro mayor"])
-    async def verificacion() -> dict[str, Any]:
-        return red_de().libro.verificar()
+    @r.get("/libro-mayor/verificacion", tags=["libro mayor"])
+    async def verificacion(red: Red = Depends(red_de)) -> dict[str, Any]:
+        return red.libro.verificar()
 
     # -- flota ------------------------------------------------------------------------------
-    @app.post("/flota/simulacion", tags=["flota"])
-    async def simular_flota(entrada: SimulacionEntrada) -> dict[str, Any]:
-        r = await simular(ParametrosFlota(**entrada.model_dump()))
-        app.state.flota = r
-        return r
+    @r.post("/flota/simulacion", tags=["flota"])
+    async def simular_flota(entrada: SimulacionEntrada, ent: Entorno = Depends(entorno_de)) -> dict[str, Any]:
+        res = await simular(ParametrosFlota(**entrada.model_dump()))
+        ent.flota = res
+        return res
 
-    @app.get("/flota/metricas", tags=["flota"])
-    async def metricas_flota() -> dict[str, Any]:
-        if app.state.flota is None:
+    @r.get("/flota/metricas", tags=["flota"])
+    async def metricas_flota(ent: Entorno = Depends(entorno_de)) -> dict[str, Any]:
+        if ent.flota is None:
             raise HTTPException(404, "todavía no se ha corrido una simulación (POST /flota/simulacion)")
-        return app.state.flota
+        return ent.flota
 
-    @app.post("/flota/muestra", tags=["flota"])
+    @r.post("/flota/muestra", tags=["flota"])
     async def muestra(entrada: MuestraEntrada) -> dict[str, Any]:
         """Corre la máquina de estados real en N cajeros con fallas aleatorias (base temporal aparte)."""
         with tempfile.TemporaryDirectory(prefix="till-muestra-") as d:
             return await correr_muestra(Path(d) / "muestra.sqlite3", **entrada.model_dump())
 
+    return r
+
+
+def crear_app(
+    ruta_db: str | Path | None = None,
+    cajeros: int = 3,
+    reenvio_en_fondo: bool = True,
+    intervalo_reenvio: float = 1.0,
+    prefijo: str = "",
+    cajeros_por_sesion: int = 1,
+    max_sesiones: int = 50,
+) -> FastAPI:
+    """Arma la API.
+
+    ``prefijo``: dónde se montan las rutas (``""`` o ``"/api"``). La red principal usa ``ruta_db``;
+    sin ella, ``directorio_datos()/till-demo.sqlite3``, que se borra al arrancar (la demo arranca
+    limpia). Las redes por sesión van a ``sesiones/`` junto a la base principal.
+    """
+
+    @contextlib.asynccontextmanager
+    async def ciclo_de_vida(app: FastAPI) -> AsyncIterator[None]:
+        ruta = Path(ruta_db) if ruta_db else directorio_datos() / "till-demo.sqlite3"
+        if ruta_db is None:
+            borrar_base(ruta)
+        principal = Entorno(construir_red(ruta, cajeros=cajeros))
+        sesiones = Sesiones(ruta.parent / "sesiones", cajeros=cajeros_por_sesion, maximo=max_sesiones)
+        app.state.principal = principal
+        app.state.sesiones = sesiones
+        app.state.instancia = uuid.uuid4().hex[:12]
+        detener = asyncio.Event()
+
+        async def reenviar() -> None:
+            """Ciclo de fondo: reintenta las reversas pendientes de todas las redes, respetando su espera."""
+            while not detener.is_set():
+                for ent in [principal, *sesiones.entornos()]:
+                    try:
+                        await ent.red.reversas.drenar(respetar_espera=True)
+                    except Exception:  # el ciclo de reenvío nunca debe morir por un error puntual
+                        log.exception("error en el ciclo de reversas")
+                sesiones.purgar()
+                with contextlib.suppress(asyncio.TimeoutError):
+                    await asyncio.wait_for(detener.wait(), intervalo_reenvio)
+
+        tarea = asyncio.create_task(reenviar()) if reenvio_en_fondo else None
+        try:
+            yield
+        finally:
+            detener.set()
+            if tarea:
+                await tarea
+            sesiones.cerrar()
+            principal.red.cerrar()
+
+    prefijo = prefijo.rstrip("/")
+    app = FastAPI(
+        title="Till",
+        version=__version__,
+        description="Red de cajeros de sucursal automatizados: implementación de referencia (Etapa 1, todo simulado).",
+        lifespan=ciclo_de_vida,
+        docs_url=f"{prefijo}/docs",
+        redoc_url=f"{prefijo}/redoc",
+        openapi_url=f"{prefijo}/openapi.json",
+    )
+    app.include_router(_rutas(), prefix=prefijo)
     return app
 
 
