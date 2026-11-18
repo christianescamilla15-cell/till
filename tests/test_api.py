@@ -95,3 +95,19 @@ def test_deposito_y_flota(cliente):
     assert m["cajeros"] == 200 and cliente.get("/flota/metricas").json()["cajeros"] == 200
     mu = cliente.post("/flota/muestra", json={"cajeros": 3, "operaciones_por_cajero": 5}).json()
     assert mu["libro_balanceado"] and mu["cajeros_que_cuadran"] == 3
+
+
+def test_ciclo_de_fondo_reenvia_reversas_solo(tmp_path):
+    import time
+
+    app = crear_app(tmp_path / "api.sqlite3", cajeros=1, reenvio_en_fondo=True, intervalo_reenvio=0.05)
+    with TestClient(app) as c:
+        c.post("/enlace/fallas", json={"falla": "solicitud_perdida", "mti": "0420"})
+        c.post(f"/cajeros/{T}/fallas", json={"dispositivo": "efectivo", "falla": "atasco", "comando": "CashDispenser.Dispense"})
+        r = c.post(f"/cajeros/{T}/operaciones", json={"tipo": "retiro", "pan": PAN, "monto_pesos": 500, "llave_idem": "f"}).json()
+        assert r["reversa_pendiente"]
+        limite = time.monotonic() + 5
+        while c.get("/reversas").json() and time.monotonic() < limite:
+            time.sleep(0.05)
+        assert c.get("/reversas").json() == []
+        assert c.get(f"/operaciones/{r['tx_id']}").json()["operacion"]["estado"] == "REVERTIDA"
