@@ -9,6 +9,7 @@ parezca un PAN completo.
 from __future__ import annotations
 
 import re
+from collections import OrderedDict
 
 from till.devices.base import (
     CodigoTerminacion as C,
@@ -29,6 +30,7 @@ class ImpresoraComprobantes(Dispositivo):
         super().__init__(ident, latencia)
         self.papel = papel
         self.comprobantes: list[str] = []
+        self.por_referencia: OrderedDict[str, str] = OrderedDict()  # operación -> texto impreso
 
     async def _cmd_Printer_PrintForm(self, id_sol: int, datos: dict, falla: FallaProgramada | None) -> Terminacion:
         cmd = "Printer.PrintForm"
@@ -45,6 +47,10 @@ class ImpresoraComprobantes(Dispositivo):
         self.comprobantes.append(texto)
         if len(self.comprobantes) > 200:
             del self.comprobantes[:100]
+        if datos.get("referencia"):
+            self.por_referencia[str(datos["referencia"])] = texto
+            while len(self.por_referencia) > 200:
+                self.por_referencia.popitem(last=False)
         return Terminacion(cmd, id_sol, C.EXITO)
 
     def estado(self) -> dict:

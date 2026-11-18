@@ -356,7 +356,7 @@ class Cajero:
             lineas.append(f"CLAVE DE COBRO {tx['autorizacion']}")
         if tx["aclaracion"]:
             lineas.append(f"EFECTIVO RETENIDO {dinero.formatear(tx['aclaracion'])} - ACLARACION {tx_id[:8]}")
-        t = await self.impresora.ejecutar("Printer.PrintForm", lineas=lineas)
+        t = await self.impresora.ejecutar("Printer.PrintForm", lineas=lineas, referencia=tx_id)
         # Una falla de impresora no revierte nada: sólo se anota.
         self.bitacora.actualizar(tx_id, comprobante="impreso" if t.ok else f"no impreso: {t.error}")
 

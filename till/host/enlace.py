@@ -23,7 +23,13 @@ from till.host.autorizador import HostAutorizador
 
 
 class TiempoAgotadoHost(Exception):
-    """No llegó respuesta a tiempo. No se sabe si el host aplicó la solicitud."""
+    """No llegó respuesta a tiempo. No se sabe si el host aplicó la solicitud.
+
+    En el transporte simulado, si el banco sí contestó y la respuesta se perdió,
+    ``respuesta_perdida`` trae esos bytes para la traza; el cajero nunca los usa.
+    """
+
+    respuesta_perdida: bytes | None = None
 
 
 class HostNoDisponible(Exception):
@@ -95,7 +101,9 @@ class TransporteEnProceso:
         except asyncio.TimeoutError as e:
             raise TiempoAgotadoHost("sin respuesta a tiempo") from e
         if falla is FallaEnlace.RESPUESTA_PERDIDA:
-            raise TiempoAgotadoHost("sin respuesta (el host sí procesó)")
+            e = TiempoAgotadoHost("sin respuesta (el host sí procesó)")
+            e.respuesta_perdida = resp  # sólo diagnóstico: el cajero nunca la recibe
+            raise e
         if falla is FallaEnlace.CORTE_TRAS_ENVIO:
             raise CorteDeEnergia("corte de energía con la solicitud ya en el host")
         return resp

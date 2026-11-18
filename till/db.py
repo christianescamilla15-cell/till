@@ -22,6 +22,7 @@ class BaseDatos:
         if sincrono not in ("FULL", "NORMAL"):
             raise ValueError("sincrono debe ser FULL o NORMAL")
         self.ruta = str(ruta)
+        self.sincrono = sincrono
         if self.ruta != ":memory:":
             Path(self.ruta).parent.mkdir(parents=True, exist_ok=True)
         # isolation_level=None: nosotros controlamos BEGIN/COMMIT explícitamente.

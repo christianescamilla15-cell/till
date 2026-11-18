@@ -17,6 +17,7 @@ from till.db import BaseDatos
 from till.devices import Camara, ImpresoraComprobantes, LectorTarjetas, RecicladorEfectivo
 from till.dinero import Mezcla
 from till.host import ClienteHost, DatosTerminal, HostAutorizador, TransporteEnProceso
+from till.host.traza import TransporteConTraza, TrazaIso
 from till.ledger import LibroMayor, cuentas
 from till.seguridad import Tokenizador
 
@@ -56,6 +57,7 @@ class Red:
     libro: LibroMayor
     reversas: ReenvioReversas
     tokenizador: Tokenizador
+    traza: TrazaIso  # mensajes ISO 8583 que viajaron (sin PAN en claro ni campo 55)
     hardware: dict[str, Hardware] = field(default_factory=dict)
     cajeros: dict[str, Cajero] = field(default_factory=dict)
 
@@ -102,26 +104,28 @@ def construir_red(
     for credito, adeudo in CREDITOS_DEMO.items():
         host.alta_credito(credito, dinero.pesos(adeudo))
     transporte = TransporteEnProceso(host, latencia=latencia)
-    red = _armar(str(ruta_db), host, transporte, tokenizador, timeout_host, sincrono)
+    red = _armar(str(ruta_db), host, transporte, tokenizador, timeout_host, sincrono, TrazaIso())
     for i in range(1, cajeros + 1):
         red.agregar_cajero(terminal_id(i), carga, latencia)
     return red
 
 
 def _armar(ruta_db: str, host: HostAutorizador, transporte: TransporteEnProceso, tokenizador: Tokenizador,
-           timeout_host: float, sincrono: str = "FULL") -> Red:
+           timeout_host: float, sincrono: str, traza: TrazaIso) -> Red:
     db = BaseDatos(ruta_db, sincrono)
     bitacora = Bitacora(db)
     libro = LibroMayor(db)
-    cliente = ClienteHost(transporte, timeout=timeout_host)
+    # El cliente habla a través de la traza; las fallas de enlace se programan en ``transporte``.
+    cliente = ClienteHost(TransporteConTraza(transporte, traza), timeout=timeout_host)
     reversas = ReenvioReversas(db, bitacora, libro, cliente)
-    return Red(ruta_db, db, host, transporte, cliente, bitacora, libro, reversas, tokenizador)
+    return Red(ruta_db, db, host, transporte, cliente, bitacora, libro, reversas, tokenizador, traza)
 
 
 def reabrir(red: Red) -> Red:
     """Simula el reinicio del proceso: misma base en disco, mismo hardware, mismo banco."""
     red.db.cerrar()
-    nueva = _armar(red.ruta_db, red.host, red.transporte, red.tokenizador, red.cliente.timeout)
+    nueva = _armar(red.ruta_db, red.host, red.transporte, red.tokenizador, red.cliente.timeout,
+                   red.db.sincrono, red.traza)
     nueva.hardware = red.hardware
     for terminal in red.hardware:
         nueva.crear_cajero(terminal)
