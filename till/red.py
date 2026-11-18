@@ -62,7 +62,7 @@ class Red:
     def cajero(self, terminal: str) -> Cajero:
         return self.cajeros[terminal]
 
-    def _crear_cajero(self, terminal: str) -> Cajero:
+    def crear_cajero(self, terminal: str) -> Cajero:
         hw = self.hardware[terminal]
         dt = DatosTerminal(terminal, f"SUC{terminal}".ljust(15, "0"), f"SUCURSAL SIMULADA {terminal}")
         c = Cajero(dt, self.db, self.bitacora, self.libro, self.cliente, self.reversas,
@@ -80,7 +80,7 @@ class Red:
         )
         # La carga inicial entra al libro como reabasto desde la bóveda.
         self.libro.registrar(f"reabasto:{terminal}:inicial", "reabasto", cuentas.reabasto(terminal, carga), terminal)
-        return self._crear_cajero(terminal)
+        return self.crear_cajero(terminal)
 
     def cerrar(self) -> None:
         self.db.cerrar()
@@ -124,5 +124,5 @@ def reabrir(red: Red) -> Red:
     nueva = _armar(red.ruta_db, red.host, red.transporte, red.tokenizador, red.cliente.timeout)
     nueva.hardware = red.hardware
     for terminal in red.hardware:
-        nueva._crear_cajero(terminal)
+        nueva.crear_cajero(terminal)
     return nueva

@@ -74,7 +74,7 @@ async def correr_muestra(
             except CorteDeEnergia:
                 # Sólo ese cajero se reinicia: proceso nuevo sobre el mismo hardware y la misma bitácora.
                 reinicios += 1
-                await red._crear_cajero(terminal).recuperar()
+                await red.crear_cajero(terminal).recuperar()
 
     await asyncio.gather(*(un_cajero(terminal_id(i), random.Random(rng.getrandbits(64)))
                            for i in range(1, cajeros + 1)))
