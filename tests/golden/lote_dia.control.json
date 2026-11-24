@@ -1,0 +1,15 @@
+{
+  "operaciones": 16,
+  "por_estado": {
+    "CANCELADA": 2,
+    "CONFIRMADA": 6,
+    "PARCIAL": 1,
+    "RECHAZADA": 1,
+    "REVERTIDA": 6
+  },
+  "cargos": "6100.00",
+  "abonos": "1300.00",
+  "aclaraciones": "1300.00",
+  "efectivo_que_salio_del_cajero": "6100.00",
+  "efectivo_que_entro_al_cajero": "4200.00"
+}
