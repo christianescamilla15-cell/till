@@ -1,5 +1,7 @@
 # Desarrollo y pruebas
 -r requirements.txt
 pytest==9.2.0
+pytest-cov==7.1.0
+coverage==7.17.1   # la cobertura se reporta, no es la compuerta (ver docs/reglas.md)
 hypothesis==6.170.15
 httpx==0.28.1      # lo requiere fastapi.testclient

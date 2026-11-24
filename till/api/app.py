@@ -244,7 +244,7 @@ def _rutas() -> APIRouter:
                 "detalle": "corte de energía simulado: el proceso del cajero murió a media operación",
                 "tx_id": ultima[0]["id"] if ultima else None,
                 "siguiente_paso": f"POST /cajeros/{terminal}/reiniciar",
-            })
+            }) from None  # el corte ya quedó en la bitácora; el cliente sólo necesita el 503 y el siguiente paso
         return _con_texto(res.como_dict())
 
     @r.get("/cajeros/{terminal}/operaciones", tags=["cajeros"])

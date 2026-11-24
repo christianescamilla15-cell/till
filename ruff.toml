@@ -1,0 +1,9 @@
+# Estilo del repo (lo corre el CI). Líneas largas a propósito en tablas de escenarios y asientos contables.
+line-length = 160
+target-version = "py312"
+extend-exclude = ["web/node_modules", ".venv-calidad"]
+
+[lint]
+select = ["E", "F", "W", "B"]
+# B008: `Depends(...)`/`Header(...)`/`Query(...)` como valor por omisión es el patrón de FastAPI.
+ignore = ["B008"]

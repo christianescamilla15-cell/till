@@ -32,7 +32,7 @@ def _existe_por_fuerza_bruta(monto_pesos, disp, max_b):
     denoms = [d for d in DENOMINACIONES_MXN if disp.get(d, 0) > 0]
     rangos = [range(min(disp[d], monto_pesos // d) + 1) for d in denoms]
     for combo in itertools.product(*rangos):
-        if sum(c * d for c, d in zip(combo, denoms)) == monto_pesos and sum(combo) <= max_b:
+        if sum(c * d for c, d in zip(combo, denoms, strict=True)) == monto_pesos and sum(combo) <= max_b:
             return True
     return False
 

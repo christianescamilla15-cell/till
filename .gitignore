@@ -22,3 +22,14 @@ web/capturas/07-reinicio-y-recuperacion.png
 
 # Motor de la demo (Pyodide y paquetes): lo genera web/scripts/preparar_motor.mjs
 web/public/motor/
+
+# Calidad: entorno local, reportes de pruebas y de escaneos
+.venv-calidad/
+node_modules/
+dist/
+.coverage
+coverage.xml
+reporte.xml
+e2e/test-results/
+e2e/playwright-report/
+*.sarif
