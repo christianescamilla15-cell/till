@@ -336,12 +336,12 @@ def xml() -> str:
          '<!-- Generado por herramientas/archimate.py: no se edita a mano. -->',
          '<model xmlns="http://www.opengroup.org/xsd/archimate/3.0/"',
          '       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"',
-         '       xsi:schemaLocation="http://www.opengroup.org/xsd/archimate/3.0/ '
-         'http://www.opengroup.org/xsd/archimate/3.1/archimate3_Diagram.xsd"',
+         ('       xsi:schemaLocation="http://www.opengroup.org/xsd/archimate/3.0/ '
+          'http://www.opengroup.org/xsd/archimate/3.1/archimate3_Diagram.xsd"'),
          '       identifier="id-till">',
          '  <name xml:lang="es">Till · red de cajeros de sucursal automatizados</name>',
-         '  <documentation xml:lang="es">Implementación de referencia abierta (Etapa 1: todo lo físico y el banco son '
-         'simulados). Modelo hecho con el código real del repositorio.</documentation>',
+         ('  <documentation xml:lang="es">Implementación de referencia abierta (Etapa 1: todo lo físico y el banco son '
+          'simulados). Modelo hecho con el código real del repositorio.</documentation>'),
          '  <elements>']
     for ident, tipo, nombre, doc, codigo in ELEMENTOS:
         s.append(f'    <element identifier="{ident}" xsi:type="{tipo}">')
@@ -394,17 +394,17 @@ def markdown() -> str:
     por_id = {e[0]: e for e in ELEMENTOS}
     s = ["# ArchiMate · vista legible",
          "",
-         "> Generado por `herramientas/archimate.py` a partir del mismo modelo que "
-         "[`till.archimate.xml`](till.archimate.xml) (formato de intercambio de The Open Group, ArchiMate 3.1). "
-         "No se edita a mano: `python3 herramientas/archimate.py` regenera los dos archivos y "
-         "`tests/test_archimate.py` falla si no coinciden.",
+         ("> Generado por `herramientas/archimate.py` a partir del mismo modelo que "
+          "[`till.archimate.xml`](till.archimate.xml) (formato de intercambio de The Open Group, ArchiMate 3.1). "
+          "No se edita a mano: `python3 herramientas/archimate.py` regenera los dos archivos y "
+          "`tests/test_archimate.py` falla si no coinciden."),
          "",
-         f"El modelo tiene **{len(ELEMENTOS)} elementos**, **{len(RELACIONES)} relaciones** y **{len(VISTAS)} vistas**. "
-         "Cada componente de aplicación y cada objeto de datos lleva la propiedad «código» con el archivo que lo "
-         "implementa. Para abrirlo en una herramienta de modelado (p. ej. Archi): *File → Import → Open Exchange XML Model*.",
+         (f"El modelo tiene **{len(ELEMENTOS)} elementos**, **{len(RELACIONES)} relaciones** y **{len(VISTAS)} vistas**. "
+          "Cada componente de aplicación y cada objeto de datos lleva la propiedad «código» con el archivo que lo "
+          "implementa. Para abrirlo en una herramienta de modelado (p. ej. Archi): *File → Import → Open Exchange XML Model*."),
          "",
-         "Notación en los diagramas: `--*` composición, `--o` agregación, `-->` asignación o servicio, `-.->` realización, "
-         "influencia o flujo (el texto lo dice), `-.-` acceso, `==>` disparo, `---` asociación.",
+         ("Notación en los diagramas: `--*` composición, `--o` agregación, `-->` asignación o servicio, `-.->` realización, "
+          "influencia o flujo (el texto lo dice), `-.-` acceso, `==>` disparo, `---` asociación."),
          ""]
     for _vista, nombre, explicacion, filas in VISTAS:
         presentes = [e for fila in filas for e in fila]

@@ -83,8 +83,8 @@ def _retiro(llave="op-1", pesos=1_700, **kw):
 REUTILIZACIONES = [
     ("otro_monto", lambda: _retiro(pesos=2_000), PAN, T),
     ("otro_tipo", lambda: Solicitud("deposito", "op-1", billetes={500: 2}), PAN, T),
-    ("otra_tarjeta", lambda: _retiro(), "4012888888881881", T),
-    ("otro_cajero", lambda: _retiro(), PAN, "TILL0002"),
+    ("otra_tarjeta", _retiro, "4012888888881881", T),
+    ("otro_cajero", _retiro, PAN, "TILL0002"),
 ]
 
 
