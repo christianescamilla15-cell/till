@@ -306,7 +306,7 @@ npm run build --prefix web && npm run humo:motor --prefix web   # la API real en
 TILL_PYTHON=$PWD/.venv/bin/python npm test --prefix e2e        # E2E con Playwright sobre el build local
 ```
 
-La compuerta no es el porcentaje de cobertura (el CI lo reporta: 94 %) sino [`docs/reglas.md`](docs/reglas.md):
+La compuerta no es el porcentaje de cobertura (el CI la reporta: 95 % de `till/` y `api/`) sino [`docs/reglas.md`](docs/reglas.md):
 **95 reglas de negocio, cada una con sus pruebas**, y una prueba que falla si la tabla cita una prueba que no
 existe o que se salta. Además:
 
