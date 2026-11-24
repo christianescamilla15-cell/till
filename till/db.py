@@ -15,11 +15,14 @@ from contextlib import contextmanager
 from pathlib import Path
 
 
+_PRAGMA_SINCRONO = {"FULL": "PRAGMA synchronous=FULL", "NORMAL": "PRAGMA synchronous=NORMAL"}
+
+
 class BaseDatos:
     def __init__(self, ruta: str | Path, sincrono: str = "FULL"):
         """``sincrono``: FULL (por omisión) sobrevive a un corte del sistema operativo;
         NORMAL sólo a la muerte del proceso (suficiente para simulaciones)."""
-        if sincrono not in ("FULL", "NORMAL"):
+        if sincrono not in _PRAGMA_SINCRONO:
             raise ValueError("sincrono debe ser FULL o NORMAL")
         self.ruta = str(ruta)
         self.sincrono = sincrono
@@ -29,7 +32,7 @@ class BaseDatos:
         self.conn = sqlite3.connect(self.ruta, isolation_level=None, check_same_thread=False)
         self.conn.row_factory = sqlite3.Row
         self.conn.execute("PRAGMA journal_mode=WAL")
-        self.conn.execute(f"PRAGMA synchronous={sincrono}")
+        self.conn.execute(_PRAGMA_SINCRONO[sincrono])  # sentencias fijas: nada de formatear SQL
         self.conn.execute("PRAGMA foreign_keys=ON")
         self._profundidad = 0
         self._candado = threading.RLock()

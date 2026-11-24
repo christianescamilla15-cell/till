@@ -374,3 +374,14 @@ def test_la_sesion_usada_hace_poco_no_se_desaloja(tmp_path):
 def test_identificador_de_sesion_invalido(tmp_path, sesion):
     with pytest.raises(ValueError):
         Sesiones(tmp_path).obtener(sesion)
+
+
+@pytest.mark.parametrize("columna", ["llave_idem", "huella", "terminal", "id", "estado = 'CONFIRMADA' --"])
+def test_la_bitacora_solo_actualiza_columnas_editables(bitacora, columna):
+    """La llave, la huella, el cajero y el id no se reescriben, y un nombre de columna nunca llega al SQL sin estar en
+    la lista fija (es lo que justifica la supresión de Semgrep en el UPDATE)."""
+    tx_id = _en_estado(bitacora, Estado.INICIADA)
+    antes = bitacora.obtener(tx_id)
+    with pytest.raises(ValueError, match="no editable"):
+        bitacora.actualizar(tx_id, **{columna: "x"})
+    assert bitacora.obtener(tx_id) == antes
