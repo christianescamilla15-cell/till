@@ -51,3 +51,13 @@ def test_mezcla_es_correcta_y_completa(monto, disp, max_b):
         assert dinero.valor(m) == dinero.pesos(monto)
         assert all(n <= disp[d] for d, n in m.items())
         assert dinero.billetes(m) <= max_b
+
+
+def test_restar_no_deja_mezclas_negativas_y_limpiar_quita_ceros():
+    import pytest
+
+    assert dinero.restar({500: 2, 100: 1}, {500: 2}) == {100: 1}
+    with pytest.raises(ValueError):
+        dinero.restar({500: 1}, {500: 2})
+    assert dinero.limpiar({"500": "2", 100: 0}) == {500: 2}
+    assert dinero.sumar({500: 1}, {500: 1, 20: 3}) == {500: 2, 20: 3}

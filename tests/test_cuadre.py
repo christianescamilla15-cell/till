@@ -40,3 +40,14 @@ def test_cuadre_limpio_con_varias_operaciones(tmp_path, correr):
     assert {x["tipo"]: x["host"] for x in rep["host"]} == {
         "retiro": dinero.pesos(2_300), "deposito": dinero.pesos(800), "pago_credito": 0, "remesa": dinero.pesos(500)
     }
+
+
+def test_cuadre_con_billetes_en_escrow_no_cuadra(tmp_path, correr):
+    """El cuadre se hace con el cajero en reposo: billetes a medio depósito son una diferencia, no un saldo."""
+    red = construir_red(tmp_path / "till.sqlite3", cajeros=1)
+    r = red.hardware[T].reciclador
+    correr(r.ejecutar("CashAcceptor.CashInStart", referencia="a-medias"))
+    correr(r.ejecutar("CashAcceptor.CashIn", referencia="a-medias", billetes={500: 2}))
+    rep = correr(cuadrar(red.cajero(T), red.host))
+    assert rep["estado"] == "DIFERENCIAS" and rep["efectivo"]["en_proceso_interno"]["escrow"] == {500: 2}
+    assert any("reposo" in o for o in rep["observaciones"])

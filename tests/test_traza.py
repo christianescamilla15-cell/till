@@ -60,3 +60,19 @@ def test_comprobante_ligado_a_su_operacion(tmp_path, correr):
     texto = red.cajero(T).impresora.por_referencia[r.tx_id]
     assert "MONTO $200.00" in texto and "411111******1111" in texto
     red.cerrar()
+
+
+def test_comprobante_de_remesa_con_clave_y_de_retenido_con_aclaracion(tmp_path, correr):
+    from till.devices import Falla
+
+    red = _red(tmp_path)
+    r = correr(red.cajero(T).operar(Solicitud("remesa", "t5", billetes={200: 3}, destino="BENEF-01"), pan=PAN))
+    texto = red.cajero(T).impresora.por_referencia[r.tx_id]
+    assert f"CLAVE DE COBRO {r.autorizacion}" in texto and "MONTO $600.00" in texto
+    rec = red.hardware[T].reciclador
+    rec.fallas.programar(Falla.ATASCO, "CashAcceptor.CashInEnd")
+    rec.fallas.programar(Falla.ATASCO, "CashAcceptor.CashInRollback")
+    r = correr(red.cajero(T).operar(Solicitud("deposito", "t6", billetes={500: 1}), pan=PAN))
+    texto = red.cajero(T).impresora.por_referencia[r.tx_id]
+    assert f"EFECTIVO RETENIDO $500.00 - ACLARACION {r.tx_id[:8]}" in texto
+    red.cerrar()

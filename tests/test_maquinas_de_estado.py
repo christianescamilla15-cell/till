@@ -385,3 +385,21 @@ def test_la_bitacora_solo_actualiza_columnas_editables(bitacora, columna):
     with pytest.raises(ValueError, match="no editable"):
         bitacora.actualizar(tx_id, **{columna: "x"})
     assert bitacora.obtener(tx_id) == antes
+
+
+def test_el_historial_de_transiciones_es_solo_anexar(bitacora):
+    tx_id = _en_estado(bitacora, Estado.INICIADA)
+    bitacora.transicion(tx_id, Estado.CANCELADA)
+    for sql in ("UPDATE historial SET a = 'CONFIRMADA'", "DELETE FROM historial"):
+        with pytest.raises(sqlite3.IntegrityError, match="solo anexar"):
+            bitacora.db.ejecutar(sql)
+    assert [h["a"] for h in bitacora.historial(tx_id)] == ["INICIADA", "CANCELADA"]
+
+
+@pytest.mark.parametrize("previo,siguiente", [(None, "000001"), (1, "000002"), (999_998, "999999"), (999_999, "000001")],
+                         ids=["primero", "consecutivo", "ultimo", "da_la_vuelta"])
+def test_el_stan_es_consecutivo_por_cajero_y_da_la_vuelta(bitacora, previo, siguiente):
+    if previo is not None:
+        bitacora.db.ejecutar("INSERT INTO secuencias (terminal, stan) VALUES (?, ?)", (T, previo))
+    assert bitacora.siguiente_stan(T) == siguiente
+    assert bitacora.siguiente_stan("TILL0002") == "000001"  # cada cajero lleva su propia secuencia

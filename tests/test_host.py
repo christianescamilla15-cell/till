@@ -136,3 +136,35 @@ def test_eco_y_transporte_tcp(correr):
 
     r = correr(flujo())
     assert r.aprobada and h.saldo("CTA-1") == dinero.pesos(10_250)
+
+
+@pytest.mark.parametrize(
+    "cambio,codigo",
+    [
+        (lambda m: m.update({"49": "840"}), "12"),  # sólo pesos (484)
+        (lambda m: m.update({"3": "990000"}), "12"),  # código de proceso desconocido
+        (lambda m: m.update({"4": iso.monto(0)}), "12"),  # monto cero
+        (lambda m: m.update({"103": "CRED-NO-EXISTE", "3": iso.PROCESO["pago_credito"]}), "12"),  # crédito inexistente
+    ],
+    ids=["moneda_extranjera", "proceso_desconocido", "monto_cero", "credito_inexistente"],
+)
+def test_el_host_rechaza_lo_que_no_procede_sin_mover_saldo(correr, cambio, codigo):
+    h = _host()
+    cliente = ClienteHost(TransporteEnProceso(h))
+    msg = _msg(cliente, "retiro", dinero.pesos(100), "000001")
+    cambio(msg)
+    assert correr(cliente.solicitar(msg)).codigo == codigo
+    assert h.saldo("CTA-1") == dinero.pesos(10_000) and h.creditos["CRED-1"] == dinero.pesos(3_000)
+
+
+def test_tarjeta_sin_cuenta_en_el_banco_es_invalida(correr):
+    h = _host()
+    cliente = ClienteHost(TransporteEnProceso(h))
+    assert correr(cliente.solicitar(_msg(cliente, "retiro", dinero.pesos(100), "000001", pan="5105105105105100"))).codigo == "14"
+
+
+def test_mensaje_de_tipo_desconocido_se_contesta_como_invalido(correr):
+    h = _host()
+    raw = iso.codificar({"t": "0100", "11": "000001"})
+    resp = iso.decodificar(correr(h.procesar(raw)))
+    assert resp["t"] == "0110" and resp["39"] == "12"
