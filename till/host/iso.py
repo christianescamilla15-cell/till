@@ -117,8 +117,11 @@ def rrn(dt: datetime, stan: str) -> str:
     return f"{u.year % 10}{u.timetuple().tm_yday:03d}{u.hour:02d}{stan}"
 
 
+MONTO_MAXIMO = 10**12 - 1  # campo 4: 12 dígitos en centavos
+
+
 def monto(centavos: int) -> str:
-    if centavos < 0 or centavos >= 10**12:
+    if centavos < 0 or centavos > MONTO_MAXIMO:
         raise ValueError("monto fuera de rango para el campo 4")
     return f"{centavos:012d}"
 

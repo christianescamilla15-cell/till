@@ -74,8 +74,15 @@ class Solicitud:
             raise SolicitudInvalida("la llave de idempotencia es obligatoria (máx. 128)")
         if self.tipo == "retiro" and (self.monto <= 0 or self.monto % 100):
             raise SolicitudInvalida("el retiro necesita un monto en pesos enteros")
-        if self.tipo != "retiro" and not any(n > 0 for n in self.billetes.values()):
-            raise SolicitudInvalida("un ingreso de efectivo necesita billetes")
+        if self.tipo != "retiro":
+            if any(not _entero(d) or d <= 0 or not _entero(n) or n < 0 for d, n in self.billetes.items()):
+                raise SolicitudInvalida("los billetes son denominación positiva -> cantidad entera no negativa")
+            if not any(n > 0 for n in self.billetes.values()):
+                raise SolicitudInvalida("un ingreso de efectivo necesita billetes")
+            if dinero.valor(self.billetes) > iso.MONTO_MAXIMO:
+                # Igual que el destino: si el total no cabe en el campo 4, la 0200 fallaría con la operación ya en
+                # AUTORIZANDO y los billetes en escrow (el cajero dejaría de aceptar depósitos hasta reiniciarse).
+                raise SolicitudInvalida("el total de los billetes no cabe en el campo 4 de ISO 8583 (12 dígitos)")
         if self.tipo in ("pago_credito", "remesa") and not self.destino:
             raise SolicitudInvalida("pago de crédito y remesa necesitan destino")
         if self.destino is not None and not destino_valido(self.destino):
@@ -91,6 +98,10 @@ MAX_DESTINO = 28  # campo 103 (LLVAR, ASCII)
 
 def destino_valido(destino: str) -> bool:
     return 0 < len(destino) <= MAX_DESTINO and destino.isascii() and destino.isprintable()
+
+
+def _entero(x: Any) -> bool:
+    return isinstance(x, int) and not isinstance(x, bool)
 
 
 @dataclass
