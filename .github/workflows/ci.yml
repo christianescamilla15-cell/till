@@ -1,0 +1,126 @@
+# CI (N02, N03, N07, N08, N08b, N09): pruebas por regla, paridad golden y contrato OpenAPI en Python 3.12; la MISMA
+# suite sobre el runtime que de verdad se publica (Pyodide: Python 3.14 y las versiones de su lockfile) más la
+# prueba de humo del motor en WebAssembly; y el build del front con un E2E de Playwright sobre ese build.
+# Plantilla común del portafolio adaptada a Till (till/ y api/ en Python, web/ con Vite + React, e2e/ con Playwright).
+#
+# Un job «skipped» por depender de otro en rojo NO es verde: en la rama protegida (main) todos los jobs de este
+# flujo y los de seguridad.yml son checks requeridos (.github/rulesets/main.json).
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pruebas:
+    name: pruebas (Python 3.12)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+      - run: pip install -r requirements-dev.txt
+      - name: estilo (ruff, configuración del repo)
+        run: ruff check .
+      # pytest sale con 5 si no encontró pruebas: eso ya falla. La cobertura se reporta, no es la compuerta: la
+      # compuerta es una prueba por regla (docs/reglas.md, verificada por tests/test_reglas_doc.py), la paridad
+      # golden con sus controles negativos y las transiciones inválidas de cada máquina de estados.
+      - run: pytest -q --junitxml=reporte.xml --cov=till --cov=api --cov-report=xml --cov-report=term
+      - run: python3 herramientas/verificar_reportes.py pytest reporte.xml
+      - name: contrato OpenAPI al día (también lo exige tests/test_contrato_openapi.py)
+        run: python3 herramientas/exportar_openapi.py --revisar
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: pruebas-3.12
+          path: |
+            reporte.xml
+            coverage.xml
+
+  # La demo publicada no corre la API con requirements.txt: la corre en el navegador sobre Pyodide. Este job prueba
+  # ese runtime (lección de Verificarro: lo que se despliega es lo que se prueba): toda la suite con el Python y los
+  # paquetes del lockfile de Pyodide, y el motor real en WebAssembly bajo el puente ASGI del worker.
+  motor:
+    name: motor de la demo (Pyodide · Python 3.14)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci --prefix web
+      # prebuild prepara el motor: intérprete del paquete npm y paquetes verificados contra el sha256 del lockfile.
+      - run: npm run build --prefix web
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: '3.14'
+      - name: el Python de este job es el de Pyodide
+        run: |
+          esperado="$(python3 herramientas/requisitos_motor.py --python)"
+          actual="$(python3 -c 'import sys; print("%d.%d" % sys.version_info[:2])')"
+          echo "Pyodide trae Python $esperado; el job corre $actual"
+          test "$esperado" = "$actual"
+      - name: dependencias con las versiones del motor publicado
+        run: |
+          python3 herramientas/requisitos_motor.py | tee motor.txt
+          pip install -r motor.txt
+      # Con web/dist construido, la prueba que sirve el front en local también corre (en «pruebas» se salta).
+      - run: pytest -q --junitxml=reporte-motor.xml
+      - run: python3 herramientas/verificar_reportes.py pytest reporte-motor.xml
+      - name: prueba de humo del motor en WebAssembly (web/dist, lo que se publica)
+        run: npm run humo:motor --prefix web
+
+  front:
+    name: front (build y E2E con Playwright)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: |
+            web/package-lock.json
+            e2e/package-lock.json
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: requirements.txt
+      # uvicorn sirve web/dist con la misma CSP que vercel.json (api/index.py; una prueba exige que coincidan).
+      - run: pip install -r requirements.txt
+      - run: npm ci --prefix web
+      - run: npm test --prefix web --if-present
+      - run: npm run build --prefix web
+      - run: npm ci
+        working-directory: e2e
+      - run: npx playwright install --with-deps chromium
+        working-directory: e2e
+      - name: E2E (retiro completo sobre el build local, nunca contra producción)
+        run: npx playwright test
+        working-directory: e2e
+        env:
+          TILL_PYTHON: python3
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: failure()
+        with:
+          name: e2e-reporte
+          path: |
+            e2e/playwright-report
+            e2e/test-results
