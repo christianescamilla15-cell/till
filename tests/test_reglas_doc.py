@@ -58,3 +58,27 @@ def test_cada_prueba_citada_existe_y_no_se_salta():
             saltadas.append(f"{archivo}::{nombre}")
     assert faltantes == []
     assert saltadas == []
+
+
+REQUISITOS = RAIZ / "docs" / "arquitectura" / "requisitos.md"
+_FILA_REQUISITO = re.compile(r"^\|\s*(RN?F-\d+)\s*\|(.*)$")
+
+
+def test_cada_requisito_traza_a_reglas_y_componentes_que_existen():
+    """requisito → componente → regla → prueba: las reglas citadas existen en reglas.md y los componentes en el repo."""
+    reglas = {ident for ident, _ in _filas()}
+    principales = []  # las tablas de requisitos (la matriz de resumen sólo repite requisito → prueba)
+    for linea in REQUISITOS.read_text(encoding="utf-8").splitlines():
+        if (m := _FILA_REQUISITO.match(linea)) and len(celdas := [c.strip() for c in m.group(2).split("|")]) >= 5:
+            principales.append((m.group(1), celdas))
+    ids = [ident for ident, _ in principales]
+    assert len(ids) >= 20 and len(ids) == len(set(ids))
+    cubiertas = set()
+    for ident, celdas in principales:
+        componentes = re.findall(r"`([^`]+)`", celdas[1])
+        citadas = {r.strip() for r in celdas[2].split(",")}
+        assert componentes, f"{ident} no cita componentes"
+        assert [c for c in componentes if not (RAIZ / c).exists()] == [], ident
+        assert citadas <= reglas, f"{ident} cita reglas que no existen: {citadas - reglas}"
+        cubiertas |= citadas
+    assert len(cubiertas) >= 60, "los requisitos dejaron de trazar a la mayoría de las reglas"

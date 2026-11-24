@@ -29,7 +29,7 @@ from till.seguridad import Tokenizador
 from ayudas import PAN, T
 
 RAIZ = Path(__file__).resolve().parents[1]
-DOCS_CON_DIAGRAMA_DE_ESTADOS = [RAIZ / "README.md"]
+DOCS_CON_DIAGRAMA_DE_ESTADOS = [RAIZ / "README.md", RAIZ / "docs" / "arquitectura" / "uml.md"]
 PAREJAS = list(product(Estado, Estado))
 
 

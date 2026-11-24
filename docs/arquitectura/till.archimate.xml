@@ -1,0 +1,1184 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Generado por herramientas/archimate.py: no se edita a mano. -->
+<model xmlns="http://www.opengroup.org/xsd/archimate/3.0/"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:schemaLocation="http://www.opengroup.org/xsd/archimate/3.0/ http://www.opengroup.org/xsd/archimate/3.1/archimate3_Diagram.xsd"
+       identifier="id-till">
+  <name xml:lang="es">Till · red de cajeros de sucursal automatizados</name>
+  <documentation xml:lang="es">Implementación de referencia abierta (Etapa 1: todo lo físico y el banco son simulados). Modelo hecho con el código real del repositorio.</documentation>
+  <elements>
+    <element identifier="st-cliente" xsi:type="Stakeholder">
+      <name xml:lang="es">Cliente de sucursal</name>
+      <documentation xml:lang="es">Quien retira, deposita, paga su crédito o envía dinero.</documentation>
+    </element>
+    <element identifier="st-banco" xsi:type="Stakeholder">
+      <name xml:lang="es">Banco (emisor y adquirente)</name>
+      <documentation xml:lang="es">Dueño de las cuentas y de la red de cajeros.</documentation>
+    </element>
+    <element identifier="st-operacion" xsi:type="Stakeholder">
+      <name xml:lang="es">Operación de la red</name>
+      <documentation xml:lang="es">Soporte técnico, monitoreo y traslado de valores.</documentation>
+      <properties>
+        <property propertyDefinitionRef="pd-codigo">
+          <value xml:lang="es">docs/etapas.md</value>
+        </property>
+      </properties>
+    </element>
+    <element identifier="st-cumplimiento" xsi:type="Stakeholder">
+      <name xml:lang="es">Riesgo, cumplimiento y auditoría</name>
+      <documentation xml:lang="es">PCI DSS, auditoría interna y regulación.</documentation>
+    </element>
+    <element identifier="dr-sustitucion" xsi:type="Driver">
+      <name xml:lang="es">Sustituir 15 000 cajeros humanos de sucursal por máquinas</name>
+      <documentation xml:lang="es">El motivo de Till (README, «Por qué existe»).</documentation>
+      <properties>
+        <property propertyDefinitionRef="pd-codigo">
+          <value xml:lang="es">README.md</value>
+        </property>
+      </properties>
+    </element>
+    <element identifier="dr-pci" xsi:type="Driver">
+      <name xml:lang="es">Datos de tarjeta bajo PCI DSS</name>
+      <documentation xml:lang="es">El PAN y el PIN tienen reglas de manejo obligatorias.</documentation>
+      <properties>
+        <property propertyDefinitionRef="pd-codigo">
+          <value xml:lang="es">till/seguridad.py</value>
+        </property>
+      </properties>
+    </element>
+    <element identifier="dr-confianza" xsi:type="Driver">
+      <name xml:lang="es">Confianza del cliente en el efectivo</name>
+      <documentation xml:lang="es">El cliente tiene que confiar en la máquina como en la ventanilla.</documentation>
+    </element>
+    <element identifier="as-cargo" xsi:type="Assessment">
+      <name xml:lang="es">Un cargo sin entrega (o una entrega sin cargo) rompe la confianza</name>
+      <documentation xml:lang="es">Es el modo de falla que más aclaraciones y quejas genera en una red de cajeros.</documentation>
+    </element>
+    <element identifier="go-exactitud" xsi:type="Goal">
+      <name xml:lang="es">Nunca cargo sin entrega ni entrega sin cargo</name>
+      <documentation xml:lang="es">Principio rector del README.</documentation>
+      <properties>
+        <property propertyDefinitionRef="pd-codigo">
+          <value xml:lang="es">README.md</value>
+        </property>
+      </properties>
+    </element>
+    <element identifier="go-cuadre" xsi:type="Goal">
+      <name xml:lang="es">Cuadre diario exacto a tres bandas</name>
+      <documentation xml:lang="es">Físico = libro mayor = banco, todos los días.</documentation>
+      <properties>
+        <property propertyDefinitionRef="pd-codigo">
+          <value xml:lang="es">till/recon/cuadre.py</value>
+        </property>
+      </properties>
+    </element>
+    <element identifier="go-disponibilidad" xsi:type="Goal">
+      <name xml:lang="es">Disponibilidad medible por cajero a escala de 15 000</name>
+      <documentation xml:lang="es">Metas por oleada en docs/etapas.md.</documentation>
+      <properties>
+        <property propertyDefinitionRef="pd-codigo">
+          <value xml:lang="es">docs/etapas.md</value>
+        </property>
+      </properties>
+    </element>
+    <element identifier="go-pan" xsi:type="Goal">
+      <name xml:lang="es">Ningún PAN en claro fuera de la sesión de tarjeta</name>
+      <documentation xml:lang="es">Ni en disco, ni en trazas, ni en comprobantes.</documentation>
+      <properties>
+        <property propertyDefinitionRef="pd-codigo">
+          <value xml:lang="es">till/seguridad.py</value>
+        </property>
+      </properties>
+    </element>
+    <element identifier="pr-rector" xsi:type="Principle">
+      <name xml:lang="es">Una operación no cuenta hasta que el dispositivo confirma y el banco acusa recibo</name>
+      <documentation xml:lang="es">De aquí salen la máquina de estados, las reversas y la recuperación.</documentation>
+      <properties>
+        <property propertyDefinitionRef="pd-codigo">
+          <value xml:lang="es">till/core/maquina.py</value>
+        </property>
+      </properties>
+    </element>
+    <element identifier="pr-una-vez" xsi:type="Principle">
+      <name xml:lang="es">Exactamente una vez</name>
+      <documentation xml:lang="es">Llave por solicitud, llave por asiento y un banco idempotente.</documentation>
+      <properties>
+        <property propertyDefinitionRef="pd-codigo">
+          <value xml:lang="es">till/core/bitacora.py</value>
+        </property>
+      </properties>
+    </element>
+    <element identifier="pr-anexar" xsi:type="Principle">
+      <name xml:lang="es">Sólo anexar</name>
+      <documentation xml:lang="es">Una corrección es otro asiento; el historial no se reescribe.</documentation>
+      <properties>
+        <property propertyDefinitionRef="pd-codigo">
+          <value xml:lang="es">till/ledger/libro.py</value>
+        </property>
+      </properties>
+    </element>
+    <element identifier="pr-ia" xsi:type="Principle">
+      <name xml:lang="es">La IA propone, las reglas autorizan</name>
+      <documentation xml:lang="es">Etapa 2: ningún modelo mueve dinero.</documentation>
+      <properties>
+        <property propertyDefinitionRef="pd-codigo">
+          <value xml:lang="es">docs/etapas.md</value>
+        </property>
+      </properties>
+    </element>
+    <element identifier="rq-reversa" xsi:type="Requirement">
+      <name xml:lang="es">RF-03 · Toda falla tras autorizar se revierte por lo no entregado</name>
+      <documentation xml:lang="es">Total o parcial con campo 95; reglas R1–R9.</documentation>
+      <properties>
+        <property propertyDefinitionRef="pd-codigo">
+          <value xml:lang="es">docs/reglas.md</value>
+        </property>
+      </properties>
+    </element>
+    <element identifier="rq-recuperacion" xsi:type="Requirement">
+      <name xml:lang="es">RNF-03 · Recuperar tras un corte sin perder ni duplicar</name>
+      <documentation xml:lang="es">Reglas E8, I7, F4.</documentation>
+      <properties>
+        <property propertyDefinitionRef="pd-codigo">
+          <value xml:lang="es">docs/reglas.md</value>
+        </property>
+      </properties>
+    </element>
+    <element identifier="rq-idempotencia" xsi:type="Requirement">
+      <name xml:lang="es">RF-05 · Idempotencia de la solicitud</name>
+      <documentation xml:lang="es">Reglas I1–I3.</documentation>
+      <properties>
+        <property propertyDefinitionRef="pd-codigo">
+          <value xml:lang="es">docs/reglas.md</value>
+        </property>
+      </properties>
+    </element>
+    <element identifier="rq-auditoria" xsi:type="Requirement">
+      <name xml:lang="es">RNF-06 · Rastro de auditoría sólo-anexar</name>
+      <documentation xml:lang="es">Reglas E3, L2.</documentation>
+      <properties>
+        <property propertyDefinitionRef="pd-codigo">
+          <value xml:lang="es">docs/reglas.md</value>
+        </property>
+      </properties>
+    </element>
+    <element identifier="rq-pan" xsi:type="Requirement">
+      <name xml:lang="es">RNF-05 · Tokenizar el PAN en el borde</name>
+      <documentation xml:lang="es">Reglas P1–P5.</documentation>
+      <properties>
+        <property propertyDefinitionRef="pd-codigo">
+          <value xml:lang="es">docs/reglas.md</value>
+        </property>
+      </properties>
+    </element>
+    <element identifier="rq-cuadre" xsi:type="Requirement">
+      <name xml:lang="es">RF-06 · Cuadre físico = libro = banco</name>
+      <documentation xml:lang="es">Reglas C1–C7.</documentation>
+      <properties>
+        <property propertyDefinitionRef="pd-codigo">
+          <value xml:lang="es">docs/reglas.md</value>
+        </property>
+      </properties>
+    </element>
+    <element identifier="co-pan-prueba" xsi:type="Constraint">
+      <name xml:lang="es">Sólo PANs de prueba públicos</name>
+      <documentation xml:lang="es">Etapa 1: todo lo físico y el banco son simulados.</documentation>
+      <properties>
+        <property propertyDefinitionRef="pd-codigo">
+          <value xml:lang="es">till/seguridad.py</value>
+        </property>
+      </properties>
+    </element>
+    <element identifier="co-estatica" xsi:type="Constraint">
+      <name xml:lang="es">La demo pública es un sitio estático sin servidor</name>
+      <documentation xml:lang="es">ADR 0002.</documentation>
+      <properties>
+        <property propertyDefinitionRef="pd-codigo">
+          <value xml:lang="es">docs/adr/0002-api-en-el-navegador-con-pyodide.md</value>
+        </property>
+      </properties>
+    </element>
+    <element identifier="ba-cliente" xsi:type="BusinessActor">
+      <name xml:lang="es">Cliente</name>
+    </element>
+    <element identifier="ba-banco" xsi:type="BusinessActor">
+      <name xml:lang="es">Banco</name>
+      <documentation xml:lang="es">Autoriza (0210) y acusa reversas (0430).</documentation>
+      <properties>
+        <property propertyDefinitionRef="pd-codigo">
+          <value xml:lang="es">till/host/autorizador.py</value>
+        </property>
+      </properties>
+    </element>
+    <element identifier="ba-operador" xsi:type="BusinessActor">
+      <name xml:lang="es">Operador de la red</name>
+    </element>
+    <element identifier="br-tarjetahabiente" xsi:type="BusinessRole">
+      <name xml:lang="es">Tarjetahabiente</name>
+    </element>
+    <element identifier="bs-retiro" xsi:type="BusinessService">
+      <name xml:lang="es">Retiro de efectivo</name>
+      <properties>
+        <property propertyDefinitionRef="pd-codigo">
+          <value xml:lang="es">till/core/maquina.py</value>
+        </property>
+      </properties>
+    </element>
+    <element identifier="bs-deposito" xsi:type="BusinessService">
+      <name xml:lang="es">Depósito en efectivo</name>
+      <properties>
+        <property propertyDefinitionRef="pd-codigo">
+          <value xml:lang="es">till/core/maquina.py</value>
+        </property>
+      </properties>
+    </element>
+    <element identifier="bs-pago" xsi:type="BusinessService">
+      <name xml:lang="es">Pago de crédito en efectivo</name>
+      <properties>
+        <property propertyDefinitionRef="pd-codigo">
+          <value xml:lang="es">till/core/maquina.py</value>
+        </property>
+      </properties>
+    </element>
+    <element identifier="bs-remesa" xsi:type="BusinessService">
+      <name xml:lang="es">Envío de remesa en efectivo</name>
+      <documentation xml:lang="es">Con clave de cobro.</documentation>
+      <properties>
+        <property propertyDefinitionRef="pd-codigo">
+          <value xml:lang="es">till/core/maquina.py</value>
+        </property>
+      </properties>
+    </element>
+    <element identifier="bs-cuadre" xsi:type="BusinessService">
+      <name xml:lang="es">Cuadre de fin de día</name>
+      <properties>
+        <property propertyDefinitionRef="pd-codigo">
+          <value xml:lang="es">till/recon/cuadre.py</value>
+        </property>
+      </properties>
+    </element>
+    <element identifier="bs-flota" xsi:type="BusinessService">
+      <name xml:lang="es">Planeación de la flota y del reabasto</name>
+      <properties>
+        <property propertyDefinitionRef="pd-codigo">
+          <value xml:lang="es">till/fleet/simulador.py</value>
+        </property>
+      </properties>
+    </element>
+    <element identifier="bp-operacion" xsi:type="BusinessProcess">
+      <name xml:lang="es">Operación en el cajero: autorizar → entregar o recibir → confirmar</name>
+      <properties>
+        <property propertyDefinitionRef="pd-codigo">
+          <value xml:lang="es">till/core/maquina.py</value>
+        </property>
+      </properties>
+    </element>
+    <element identifier="bp-reversa" xsi:type="BusinessProcess">
+      <name xml:lang="es">Reversa: almacenar y reenviar hasta el acuse</name>
+      <properties>
+        <property propertyDefinitionRef="pd-codigo">
+          <value xml:lang="es">till/core/reversas.py</value>
+        </property>
+      </properties>
+    </element>
+    <element identifier="bp-recuperacion" xsi:type="BusinessProcess">
+      <name xml:lang="es">Recuperación tras un corte de energía</name>
+      <properties>
+        <property propertyDefinitionRef="pd-codigo">
+          <value xml:lang="es">till/core/maquina.py</value>
+        </property>
+      </properties>
+    </element>
+    <element identifier="bp-cuadre" xsi:type="BusinessProcess">
+      <name xml:lang="es">Cuadre a tres bandas</name>
+      <properties>
+        <property propertyDefinitionRef="pd-codigo">
+          <value xml:lang="es">till/recon/cuadre.py</value>
+        </property>
+      </properties>
+    </element>
+    <element identifier="bo-operacion" xsi:type="BusinessObject">
+      <name xml:lang="es">Operación</name>
+    </element>
+    <element identifier="bo-asiento" xsi:type="BusinessObject">
+      <name xml:lang="es">Asiento contable</name>
+    </element>
+    <element identifier="bo-reversa" xsi:type="BusinessObject">
+      <name xml:lang="es">Reversa</name>
+    </element>
+    <element identifier="bo-comprobante" xsi:type="BusinessObject">
+      <name xml:lang="es">Comprobante</name>
+    </element>
+    <element identifier="bo-aclaracion" xsi:type="BusinessObject">
+      <name xml:lang="es">Aclaración (efectivo retenido)</name>
+    </element>
+    <element identifier="ac-maquina" xsi:type="ApplicationComponent">
+      <name xml:lang="es">Máquina de estados del cajero</name>
+      <documentation xml:lang="es">AUTORIZAR → ENTREGAR/RECIBIR → CONFIRMAR, recuperación.</documentation>
+      <properties>
+        <property propertyDefinitionRef="pd-codigo">
+          <value xml:lang="es">till/core/maquina.py</value>
+        </property>
+      </properties>
+    </element>
+    <element identifier="ac-bitacora" xsi:type="ApplicationComponent">
+      <name xml:lang="es">Bitácora transaccional</name>
+      <documentation xml:lang="es">Estados, historial, STAN y cola de reversas (escritura anticipada).</documentation>
+      <properties>
+        <property propertyDefinitionRef="pd-codigo">
+          <value xml:lang="es">till/core/bitacora.py</value>
+        </property>
+      </properties>
+    </element>
+    <element identifier="ac-reversas" xsi:type="ApplicationComponent">
+      <name xml:lang="es">Reenvío de reversas</name>
+      <documentation xml:lang="es">0420/0421 con espera exponencial hasta el 0430.</documentation>
+      <properties>
+        <property propertyDefinitionRef="pd-codigo">
+          <value xml:lang="es">till/core/reversas.py</value>
+        </property>
+      </properties>
+    </element>
+    <element identifier="ac-libro" xsi:type="ApplicationComponent">
+      <name xml:lang="es">Libro mayor de partida doble</name>
+      <documentation xml:lang="es">Sólo anexar, con llave de idempotencia por asiento.</documentation>
+      <properties>
+        <property propertyDefinitionRef="pd-codigo">
+          <value xml:lang="es">till/ledger/libro.py</value>
+        </property>
+      </properties>
+    </element>
+    <element identifier="ac-cuadre" xsi:type="ApplicationComponent">
+      <name xml:lang="es">Cuadre a tres bandas</name>
+      <documentation xml:lang="es">Físico contra libro, libro contra banco.</documentation>
+      <properties>
+        <property propertyDefinitionRef="pd-codigo">
+          <value xml:lang="es">till/recon/cuadre.py</value>
+        </property>
+      </properties>
+    </element>
+    <element identifier="ac-dispositivos" xsi:type="ApplicationComponent">
+      <name xml:lang="es">Dispositivos simulados</name>
+      <documentation xml:lang="es">Reciclador, lector EMV, impresora y cámara con inyección de fallas.</documentation>
+      <properties>
+        <property propertyDefinitionRef="pd-codigo">
+          <value xml:lang="es">till/devices/base.py</value>
+        </property>
+      </properties>
+    </element>
+    <element identifier="ac-cliente-iso" xsi:type="ApplicationComponent">
+      <name xml:lang="es">Cliente ISO 8583</name>
+      <documentation xml:lang="es">Arma 0200, 0420/0421 y 0800 del lado del cajero.</documentation>
+      <properties>
+        <property propertyDefinitionRef="pd-codigo">
+          <value xml:lang="es">till/host/cliente.py</value>
+        </property>
+      </properties>
+    </element>
+    <element identifier="ac-enlace" xsi:type="ApplicationComponent">
+      <name xml:lang="es">Enlace con el banco</name>
+      <documentation xml:lang="es">Transporte en proceso (con fallas) o TCP con marco de 2 bytes.</documentation>
+      <properties>
+        <property propertyDefinitionRef="pd-codigo">
+          <value xml:lang="es">till/host/enlace.py</value>
+        </property>
+      </properties>
+    </element>
+    <element identifier="ac-autorizador" xsi:type="ApplicationComponent">
+      <name xml:lang="es">Autorizador simulado (banco)</name>
+      <documentation xml:lang="es">Cuentas, límites, créditos, remesas; idempotente.</documentation>
+      <properties>
+        <property propertyDefinitionRef="pd-codigo">
+          <value xml:lang="es">till/host/autorizador.py</value>
+        </property>
+      </properties>
+    </element>
+    <element identifier="ac-traza" xsi:type="ApplicationComponent">
+      <name xml:lang="es">Traza ISO 8583</name>
+      <documentation xml:lang="es">Lo que viajó, sin PAN en claro ni campo 55.</documentation>
+      <properties>
+        <property propertyDefinitionRef="pd-codigo">
+          <value xml:lang="es">till/host/traza.py</value>
+        </property>
+      </properties>
+    </element>
+    <element identifier="ac-seguridad" xsi:type="ApplicationComponent">
+      <name xml:lang="es">Tokenización y criptograma</name>
+      <documentation xml:lang="es">Token con llave, enmascarado 6+4, ARQC simulado.</documentation>
+      <properties>
+        <property propertyDefinitionRef="pd-codigo">
+          <value xml:lang="es">till/seguridad.py</value>
+        </property>
+      </properties>
+    </element>
+    <element identifier="ac-red" xsi:type="ApplicationComponent">
+      <name xml:lang="es">Armado de la red</name>
+      <documentation xml:lang="es">Banco, enlace, bitácora, libro y cajeros en una sola base.</documentation>
+      <properties>
+        <property propertyDefinitionRef="pd-codigo">
+          <value xml:lang="es">till/red.py</value>
+        </property>
+      </properties>
+    </element>
+    <element identifier="ac-flota" xsi:type="ApplicationComponent">
+      <name xml:lang="es">Simulador de flota</name>
+      <documentation xml:lang="es">Modelo agregado de hasta 15 000 cajeros y muestra de alta fidelidad.</documentation>
+      <properties>
+        <property propertyDefinitionRef="pd-codigo">
+          <value xml:lang="es">till/fleet/simulador.py</value>
+        </property>
+      </properties>
+    </element>
+    <element identifier="ac-api" xsi:type="ApplicationComponent">
+      <name xml:lang="es">API HTTP (FastAPI)</name>
+      <documentation xml:lang="es">La misma app en local, en las pruebas y en el navegador.</documentation>
+      <properties>
+        <property propertyDefinitionRef="pd-codigo">
+          <value xml:lang="es">till/api/app.py</value>
+        </property>
+      </properties>
+    </element>
+    <element identifier="ac-sesiones" xsi:type="ApplicationComponent">
+      <name xml:lang="es">Sesiones de la demo</name>
+      <documentation xml:lang="es">Una red por visitante (X-Till-Sesion).</documentation>
+      <properties>
+        <property propertyDefinitionRef="pd-codigo">
+          <value xml:lang="es">till/api/sesiones.py</value>
+        </property>
+      </properties>
+    </element>
+    <element identifier="ac-web" xsi:type="ApplicationComponent">
+      <name xml:lang="es">Demo web (React)</name>
+      <documentation xml:lang="es">El cajero, el taller de fallas, los libros y la flota.</documentation>
+      <properties>
+        <property propertyDefinitionRef="pd-codigo">
+          <value xml:lang="es">web/src/App.jsx</value>
+        </property>
+      </properties>
+    </element>
+    <element identifier="ac-motor" xsi:type="ApplicationComponent">
+      <name xml:lang="es">Motor en el navegador</name>
+      <documentation xml:lang="es">Web worker con Pyodide y el puente ASGI hacia la app.</documentation>
+      <properties>
+        <property propertyDefinitionRef="pd-codigo">
+          <value xml:lang="es">web/src/motor/motor.worker.js</value>
+        </property>
+      </properties>
+    </element>
+    <element identifier="ai-rest" xsi:type="ApplicationInterface">
+      <name xml:lang="es">API REST /api (OpenAPI)</name>
+      <documentation xml:lang="es">Contrato versionado.</documentation>
+      <properties>
+        <property propertyDefinitionRef="pd-codigo">
+          <value xml:lang="es">docs/api/openapi.json</value>
+        </property>
+      </properties>
+    </element>
+    <element identifier="ai-iso" xsi:type="ApplicationInterface">
+      <name xml:lang="es">Mensajes ISO 8583</name>
+      <documentation xml:lang="es">0200/0210, 0420/0421/0430, 0800/0810.</documentation>
+      <properties>
+        <property propertyDefinitionRef="pd-codigo">
+          <value xml:lang="es">till/host/iso.py</value>
+        </property>
+      </properties>
+    </element>
+    <element identifier="ai-dispositivos" xsi:type="ApplicationInterface">
+      <name xml:lang="es">Comandos y eventos de dispositivo (estilo XFS4IoT)</name>
+      <properties>
+        <property propertyDefinitionRef="pd-codigo">
+          <value xml:lang="es">till/devices/base.py</value>
+        </property>
+      </properties>
+    </element>
+    <element identifier="as-autorizar" xsi:type="ApplicationService">
+      <name xml:lang="es">Autorizar operación</name>
+      <properties>
+        <property propertyDefinitionRef="pd-codigo">
+          <value xml:lang="es">till/core/maquina.py</value>
+        </property>
+      </properties>
+    </element>
+    <element identifier="as-revertir" xsi:type="ApplicationService">
+      <name xml:lang="es">Revertir operación</name>
+      <properties>
+        <property propertyDefinitionRef="pd-codigo">
+          <value xml:lang="es">till/core/reversas.py</value>
+        </property>
+      </properties>
+    </element>
+    <element identifier="as-registrar" xsi:type="ApplicationService">
+      <name xml:lang="es">Registrar asiento</name>
+      <properties>
+        <property propertyDefinitionRef="pd-codigo">
+          <value xml:lang="es">till/ledger/libro.py</value>
+        </property>
+      </properties>
+    </element>
+    <element identifier="as-cuadrar" xsi:type="ApplicationService">
+      <name xml:lang="es">Cuadrar terminal</name>
+      <properties>
+        <property propertyDefinitionRef="pd-codigo">
+          <value xml:lang="es">till/recon/cuadre.py</value>
+        </property>
+      </properties>
+    </element>
+    <element identifier="as-simular" xsi:type="ApplicationService">
+      <name xml:lang="es">Simular flota</name>
+      <properties>
+        <property propertyDefinitionRef="pd-codigo">
+          <value xml:lang="es">till/fleet/simulador.py</value>
+        </property>
+      </properties>
+    </element>
+    <element identifier="do-transacciones" xsi:type="DataObject">
+      <name xml:lang="es">Transacciones e historial</name>
+      <documentation xml:lang="es">Tablas transacciones e historial.</documentation>
+      <properties>
+        <property propertyDefinitionRef="pd-codigo">
+          <value xml:lang="es">till/core/bitacora.py</value>
+        </property>
+      </properties>
+    </element>
+    <element identifier="do-reversas" xsi:type="DataObject">
+      <name xml:lang="es">Cola de reversas</name>
+      <documentation xml:lang="es">Tabla reversas.</documentation>
+      <properties>
+        <property propertyDefinitionRef="pd-codigo">
+          <value xml:lang="es">till/core/bitacora.py</value>
+        </property>
+      </properties>
+    </element>
+    <element identifier="do-asientos" xsi:type="DataObject">
+      <name xml:lang="es">Asientos y movimientos</name>
+      <documentation xml:lang="es">Tablas asientos y movimientos.</documentation>
+      <properties>
+        <property propertyDefinitionRef="pd-codigo">
+          <value xml:lang="es">till/ledger/libro.py</value>
+        </property>
+      </properties>
+    </element>
+    <element identifier="do-mensaje" xsi:type="DataObject">
+      <name xml:lang="es">Mensaje ISO 8583</name>
+      <properties>
+        <property propertyDefinitionRef="pd-codigo">
+          <value xml:lang="es">till/host/iso.py</value>
+        </property>
+      </properties>
+    </element>
+    <element identifier="do-token" xsi:type="DataObject">
+      <name xml:lang="es">Token de tarjeta y PAN enmascarado</name>
+      <properties>
+        <property propertyDefinitionRef="pd-codigo">
+          <value xml:lang="es">till/seguridad.py</value>
+        </property>
+      </properties>
+    </element>
+    <element identifier="nd-navegador" xsi:type="Node">
+      <name xml:lang="es">Navegador del visitante</name>
+    </element>
+    <element identifier="nd-vercel" xsi:type="Node">
+      <name xml:lang="es">Vercel (sitio estático en CDN)</name>
+      <properties>
+        <property propertyDefinitionRef="pd-codigo">
+          <value xml:lang="es">vercel.json</value>
+        </property>
+      </properties>
+    </element>
+    <element identifier="nd-ci" xsi:type="Node">
+      <name xml:lang="es">GitHub Actions</name>
+      <documentation xml:lang="es">CI y escaneos.</documentation>
+      <properties>
+        <property propertyDefinitionRef="pd-codigo">
+          <value xml:lang="es">.github/workflows/ci.yml</value>
+        </property>
+      </properties>
+    </element>
+    <element identifier="nd-edge" xsi:type="Node">
+      <name xml:lang="es">PC industrial del cajero (diseño de referencia)</name>
+      <documentation xml:lang="es">Etapa 1: simulado.</documentation>
+      <properties>
+        <property propertyDefinitionRef="pd-codigo">
+          <value xml:lang="es">docs/hardware.md</value>
+        </property>
+      </properties>
+    </element>
+    <element identifier="ss-pyodide" xsi:type="SystemSoftware">
+      <name xml:lang="es">Pyodide (CPython 3.14 en WebAssembly)</name>
+      <properties>
+        <property propertyDefinitionRef="pd-codigo">
+          <value xml:lang="es">web/scripts/preparar_motor.mjs</value>
+        </property>
+      </properties>
+    </element>
+    <element identifier="ss-worker" xsi:type="SystemSoftware">
+      <name xml:lang="es">Web Worker del navegador</name>
+      <properties>
+        <property propertyDefinitionRef="pd-codigo">
+          <value xml:lang="es">web/src/motor/motor.worker.js</value>
+        </property>
+      </properties>
+    </element>
+    <element identifier="ss-sqlite" xsi:type="SystemSoftware">
+      <name xml:lang="es">SQLite (WAL, synchronous=FULL)</name>
+      <properties>
+        <property propertyDefinitionRef="pd-codigo">
+          <value xml:lang="es">till/db.py</value>
+        </property>
+      </properties>
+    </element>
+    <element identifier="ss-cpython" xsi:type="SystemSoftware">
+      <name xml:lang="es">CPython 3.12 + uvicorn</name>
+      <documentation xml:lang="es">Local y CI.</documentation>
+      <properties>
+        <property propertyDefinitionRef="pd-codigo">
+          <value xml:lang="es">api/index.py</value>
+        </property>
+      </properties>
+    </element>
+    <element identifier="dv-reciclador" xsi:type="Device">
+      <name xml:lang="es">Reciclador de efectivo</name>
+      <properties>
+        <property propertyDefinitionRef="pd-codigo">
+          <value xml:lang="es">docs/hardware.md</value>
+        </property>
+      </properties>
+    </element>
+    <element identifier="dv-lector" xsi:type="Device">
+      <name xml:lang="es">Lector EMV</name>
+      <properties>
+        <property propertyDefinitionRef="pd-codigo">
+          <value xml:lang="es">docs/hardware.md</value>
+        </property>
+      </properties>
+    </element>
+    <element identifier="dv-impresora" xsi:type="Device">
+      <name xml:lang="es">Impresora térmica</name>
+      <properties>
+        <property propertyDefinitionRef="pd-codigo">
+          <value xml:lang="es">docs/hardware.md</value>
+        </property>
+      </properties>
+    </element>
+    <element identifier="dv-camara" xsi:type="Device">
+      <name xml:lang="es">Cámara</name>
+      <properties>
+        <property propertyDefinitionRef="pd-codigo">
+          <value xml:lang="es">docs/hardware.md</value>
+        </property>
+      </properties>
+    </element>
+    <element identifier="ts-hosting" xsi:type="TechnologyService">
+      <name xml:lang="es">Hosting estático con CSP estricta</name>
+      <properties>
+        <property propertyDefinitionRef="pd-codigo">
+          <value xml:lang="es">vercel.json</value>
+        </property>
+      </properties>
+    </element>
+    <element identifier="ts-python" xsi:type="TechnologyService">
+      <name xml:lang="es">Python en el navegador</name>
+      <properties>
+        <property propertyDefinitionRef="pd-codigo">
+          <value xml:lang="es">web/scripts/preparar_motor.mjs</value>
+        </property>
+      </properties>
+    </element>
+    <element identifier="ts-persistencia" xsi:type="TechnologyService">
+      <name xml:lang="es">Persistencia transaccional local</name>
+      <documentation xml:lang="es">Bitácora y libro en una transacción.</documentation>
+      <properties>
+        <property propertyDefinitionRef="pd-codigo">
+          <value xml:lang="es">till/db.py</value>
+        </property>
+      </properties>
+    </element>
+    <element identifier="ar-dist" xsi:type="Artifact">
+      <name xml:lang="es">web/dist (sitio publicado)</name>
+      <properties>
+        <property propertyDefinitionRef="pd-codigo">
+          <value xml:lang="es">web/vite.config.js</value>
+        </property>
+      </properties>
+    </element>
+    <element identifier="ar-motor" xsi:type="Artifact">
+      <name xml:lang="es">motor/till.json + pyodide-lock.json recortado</name>
+      <properties>
+        <property propertyDefinitionRef="pd-codigo">
+          <value xml:lang="es">web/scripts/preparar_motor.mjs</value>
+        </property>
+      </properties>
+    </element>
+    <element identifier="ar-vercel" xsi:type="Artifact">
+      <name xml:lang="es">vercel.json</name>
+      <properties>
+        <property propertyDefinitionRef="pd-codigo">
+          <value xml:lang="es">vercel.json</value>
+        </property>
+      </properties>
+    </element>
+    <element identifier="pa-enlace" xsi:type="Path">
+      <name xml:lang="es">Enlace ISO 8583 sobre TCP (marco de 2 bytes)</name>
+      <properties>
+        <property propertyDefinitionRef="pd-codigo">
+          <value xml:lang="es">till/host/enlace.py</value>
+        </property>
+      </properties>
+    </element>
+    <element identifier="pl-base" xsi:type="Plateau">
+      <name xml:lang="es">Línea base: API como función de Python en Vercel</name>
+      <documentation xml:lang="es">Descartada: estado repartido entre instancias (ADR 0002).</documentation>
+      <properties>
+        <property propertyDefinitionRef="pd-codigo">
+          <value xml:lang="es">docs/adr/0002-api-en-el-navegador-con-pyodide.md</value>
+        </property>
+      </properties>
+    </element>
+    <element identifier="pl-objetivo" xsi:type="Plateau">
+      <name xml:lang="es">Objetivo Etapa 1: API en el navegador, CI y calidad de referencia</name>
+      <properties>
+        <property propertyDefinitionRef="pd-codigo">
+          <value xml:lang="es">docs/arquitectura/vision.md</value>
+        </property>
+      </properties>
+    </element>
+    <element identifier="pl-etapa2" xsi:type="Plateau">
+      <name xml:lang="es">Etapa 2: IA detrás de una compuerta de reglas</name>
+      <documentation xml:lang="es">Sólo diseñada.</documentation>
+      <properties>
+        <property propertyDefinitionRef="pd-codigo">
+          <value xml:lang="es">docs/etapas.md</value>
+        </property>
+      </properties>
+    </element>
+    <element identifier="gp-estado" xsi:type="Gap">
+      <name xml:lang="es">Estado en memoria repartido entre instancias sin servidor</name>
+      <properties>
+        <property propertyDefinitionRef="pd-codigo">
+          <value xml:lang="es">docs/adr/0002-api-en-el-navegador-con-pyodide.md</value>
+        </property>
+      </properties>
+    </element>
+    <element identifier="wp-calidad" xsi:type="WorkPackage">
+      <name xml:lang="es">Programa de calidad: CI, reglas → pruebas, motor probado</name>
+      <properties>
+        <property propertyDefinitionRef="pd-codigo">
+          <value xml:lang="es">docs/reglas.md</value>
+        </property>
+      </properties>
+    </element>
+    <element identifier="wp-piloto" xsi:type="WorkPackage">
+      <name xml:lang="es">Laboratorio y piloto de 50 sucursales</name>
+      <properties>
+        <property propertyDefinitionRef="pd-codigo">
+          <value xml:lang="es">docs/etapas.md</value>
+        </property>
+      </properties>
+    </element>
+  </elements>
+  <relationships>
+    <relationship identifier="r01" source="st-cliente" target="dr-confianza" xsi:type="Association" />
+    <relationship identifier="r02" source="st-banco" target="dr-sustitucion" xsi:type="Association" />
+    <relationship identifier="r03" source="st-operacion" target="dr-sustitucion" xsi:type="Association" />
+    <relationship identifier="r04" source="st-cumplimiento" target="dr-pci" xsi:type="Association" />
+    <relationship identifier="r05" source="dr-confianza" target="as-cargo" xsi:type="Influence" />
+    <relationship identifier="r06" source="as-cargo" target="go-exactitud" xsi:type="Influence" />
+    <relationship identifier="r07" source="dr-sustitucion" target="go-disponibilidad" xsi:type="Influence" />
+    <relationship identifier="r08" source="dr-pci" target="go-pan" xsi:type="Influence" />
+    <relationship identifier="r09" source="dr-confianza" target="go-cuadre" xsi:type="Influence" />
+    <relationship identifier="r10" source="pr-rector" target="go-exactitud" xsi:type="Realization" />
+    <relationship identifier="r11" source="pr-una-vez" target="go-exactitud" xsi:type="Realization" />
+    <relationship identifier="r12" source="pr-anexar" target="go-cuadre" xsi:type="Realization" />
+    <relationship identifier="r13" source="rq-reversa" target="pr-rector" xsi:type="Realization" />
+    <relationship identifier="r14" source="rq-recuperacion" target="pr-rector" xsi:type="Realization" />
+    <relationship identifier="r15" source="rq-idempotencia" target="pr-una-vez" xsi:type="Realization" />
+    <relationship identifier="r16" source="rq-auditoria" target="pr-anexar" xsi:type="Realization" />
+    <relationship identifier="r17" source="rq-pan" target="go-pan" xsi:type="Realization" />
+    <relationship identifier="r18" source="rq-cuadre" target="go-cuadre" xsi:type="Realization" />
+    <relationship identifier="r19" source="co-pan-prueba" target="rq-pan" xsi:type="Influence" />
+    <relationship identifier="r20" source="ac-reversas" target="rq-reversa" xsi:type="Realization" />
+    <relationship identifier="r21" source="ac-maquina" target="rq-recuperacion" xsi:type="Realization" />
+    <relationship identifier="r22" source="ac-bitacora" target="rq-idempotencia" xsi:type="Realization" />
+    <relationship identifier="r23" source="ac-libro" target="rq-auditoria" xsi:type="Realization" />
+    <relationship identifier="r24" source="ac-seguridad" target="rq-pan" xsi:type="Realization" />
+    <relationship identifier="r25" source="ac-cuadre" target="rq-cuadre" xsi:type="Realization" />
+    <relationship identifier="r26" source="ac-motor" target="co-estatica" xsi:type="Realization" />
+    <relationship identifier="r30" source="ba-cliente" target="br-tarjetahabiente" xsi:type="Assignment" />
+    <relationship identifier="r31" source="bs-retiro" target="br-tarjetahabiente" xsi:type="Serving" />
+    <relationship identifier="r32" source="bs-deposito" target="br-tarjetahabiente" xsi:type="Serving" />
+    <relationship identifier="r33" source="bs-pago" target="br-tarjetahabiente" xsi:type="Serving" />
+    <relationship identifier="r34" source="bs-remesa" target="br-tarjetahabiente" xsi:type="Serving" />
+    <relationship identifier="r35" source="bs-cuadre" target="ba-operador" xsi:type="Serving" />
+    <relationship identifier="r36" source="bs-flota" target="ba-operador" xsi:type="Serving" />
+    <relationship identifier="r37" source="bp-operacion" target="bs-retiro" xsi:type="Realization" />
+    <relationship identifier="r38" source="bp-operacion" target="bs-deposito" xsi:type="Realization" />
+    <relationship identifier="r39" source="bp-operacion" target="bs-pago" xsi:type="Realization" />
+    <relationship identifier="r40" source="bp-operacion" target="bs-remesa" xsi:type="Realization" />
+    <relationship identifier="r41" source="bp-cuadre" target="bs-cuadre" xsi:type="Realization" />
+    <relationship identifier="r42" source="bp-operacion" target="bp-reversa" xsi:type="Triggering">
+      <name xml:lang="es">falla tras autorizar</name>
+    </relationship>
+    <relationship identifier="r43" source="bp-recuperacion" target="bp-reversa" xsi:type="Triggering">
+      <name xml:lang="es">sin prueba de entrega</name>
+    </relationship>
+    <relationship identifier="r44" source="bp-operacion" target="bo-operacion" xsi:type="Access" accessType="Write" />
+    <relationship identifier="r45" source="bp-operacion" target="bo-comprobante" xsi:type="Access" accessType="Write" />
+    <relationship identifier="r46" source="bp-operacion" target="bo-aclaracion" xsi:type="Access" accessType="Write" />
+    <relationship identifier="r47" source="bp-operacion" target="bo-asiento" xsi:type="Access" accessType="Write" />
+    <relationship identifier="r48" source="bp-reversa" target="bo-reversa" xsi:type="Access" accessType="Write" />
+    <relationship identifier="r49" source="bp-cuadre" target="bo-asiento" xsi:type="Access" accessType="Write" />
+    <relationship identifier="r50" source="ba-banco" target="bp-operacion" xsi:type="Association">
+      <name xml:lang="es">autoriza</name>
+    </relationship>
+    <relationship identifier="r51" source="ba-banco" target="bp-reversa" xsi:type="Association">
+      <name xml:lang="es">acusa</name>
+    </relationship>
+    <relationship identifier="r60" source="as-autorizar" target="bp-operacion" xsi:type="Serving" />
+    <relationship identifier="r61" source="as-registrar" target="bp-operacion" xsi:type="Serving" />
+    <relationship identifier="r62" source="as-revertir" target="bp-reversa" xsi:type="Serving" />
+    <relationship identifier="r63" source="as-cuadrar" target="bp-cuadre" xsi:type="Serving" />
+    <relationship identifier="r64" source="as-simular" target="ba-operador" xsi:type="Serving" />
+    <relationship identifier="r65" source="ac-maquina" target="as-autorizar" xsi:type="Realization" />
+    <relationship identifier="r66" source="ac-reversas" target="as-revertir" xsi:type="Realization" />
+    <relationship identifier="r67" source="ac-libro" target="as-registrar" xsi:type="Realization" />
+    <relationship identifier="r68" source="ac-cuadre" target="as-cuadrar" xsi:type="Realization" />
+    <relationship identifier="r69" source="ac-flota" target="as-simular" xsi:type="Realization" />
+    <relationship identifier="r70" source="do-transacciones" target="bo-operacion" xsi:type="Realization" />
+    <relationship identifier="r71" source="do-reversas" target="bo-reversa" xsi:type="Realization" />
+    <relationship identifier="r72" source="do-asientos" target="bo-asiento" xsi:type="Realization" />
+    <relationship identifier="r80" source="ac-api" target="ai-rest" xsi:type="Composition" />
+    <relationship identifier="r81" source="ac-cliente-iso" target="ai-iso" xsi:type="Composition" />
+    <relationship identifier="r82" source="ac-dispositivos" target="ai-dispositivos" xsi:type="Composition" />
+    <relationship identifier="r83" source="ac-api" target="ac-sesiones" xsi:type="Composition" />
+    <relationship identifier="r84" source="ac-bitacora" target="ac-maquina" xsi:type="Serving" />
+    <relationship identifier="r85" source="ac-reversas" target="ac-maquina" xsi:type="Serving" />
+    <relationship identifier="r86" source="ac-libro" target="ac-maquina" xsi:type="Serving" />
+    <relationship identifier="r87" source="ac-cliente-iso" target="ac-maquina" xsi:type="Serving" />
+    <relationship identifier="r88" source="ai-dispositivos" target="ac-maquina" xsi:type="Serving" />
+    <relationship identifier="r89" source="ac-enlace" target="ac-cliente-iso" xsi:type="Serving" />
+    <relationship identifier="r90" source="ac-traza" target="ac-cliente-iso" xsi:type="Serving" />
+    <relationship identifier="r91" source="ac-seguridad" target="ac-dispositivos" xsi:type="Serving" />
+    <relationship identifier="r92" source="ac-maquina" target="ac-cuadre" xsi:type="Serving" />
+    <relationship identifier="r93" source="ac-autorizador" target="ac-cuadre" xsi:type="Serving">
+      <name xml:lang="es">totales del banco</name>
+    </relationship>
+    <relationship identifier="r94" source="ac-red" target="ac-api" xsi:type="Serving" />
+    <relationship identifier="r95" source="ac-cuadre" target="ac-api" xsi:type="Serving" />
+    <relationship identifier="r96" source="ac-flota" target="ac-api" xsi:type="Serving" />
+    <relationship identifier="r97" source="ac-api" target="ac-motor" xsi:type="Serving">
+      <name xml:lang="es">llamada ASGI</name>
+    </relationship>
+    <relationship identifier="r98" source="ac-motor" target="ac-web" xsi:type="Serving">
+      <name xml:lang="es">postMessage</name>
+    </relationship>
+    <relationship identifier="r99" source="ai-rest" target="ac-web" xsi:type="Serving" />
+    <relationship identifier="r100" source="ac-enlace" target="ac-autorizador" xsi:type="Flow">
+      <name xml:lang="es">0200 · 0420/0421</name>
+    </relationship>
+    <relationship identifier="r101" source="ac-reversas" target="ac-cliente-iso" xsi:type="Serving" />
+    <relationship identifier="r102" source="ac-bitacora" target="do-transacciones" xsi:type="Access" accessType="Write" />
+    <relationship identifier="r103" source="ac-bitacora" target="do-reversas" xsi:type="Access" accessType="Write" />
+    <relationship identifier="r104" source="ac-reversas" target="do-reversas" xsi:type="Access" accessType="Write" />
+    <relationship identifier="r105" source="ac-libro" target="do-asientos" xsi:type="Access" accessType="Write" />
+    <relationship identifier="r106" source="ac-cuadre" target="do-asientos" xsi:type="Access" accessType="Write" />
+    <relationship identifier="r107" source="ac-cliente-iso" target="do-mensaje" xsi:type="Access" accessType="Write" />
+    <relationship identifier="r108" source="ac-traza" target="do-mensaje" xsi:type="Access" accessType="Write" />
+    <relationship identifier="r109" source="ac-seguridad" target="do-token" xsi:type="Access" accessType="Write" />
+    <relationship identifier="r120" source="nd-navegador" target="ss-worker" xsi:type="Composition" />
+    <relationship identifier="r121" source="nd-navegador" target="ss-pyodide" xsi:type="Composition" />
+    <relationship identifier="r122" source="nd-ci" target="ss-cpython" xsi:type="Composition" />
+    <relationship identifier="r123" source="nd-edge" target="dv-reciclador" xsi:type="Aggregation" />
+    <relationship identifier="r124" source="nd-edge" target="dv-lector" xsi:type="Aggregation" />
+    <relationship identifier="r125" source="nd-edge" target="dv-impresora" xsi:type="Aggregation" />
+    <relationship identifier="r126" source="nd-edge" target="dv-camara" xsi:type="Aggregation" />
+    <relationship identifier="r127" source="nd-vercel" target="ar-dist" xsi:type="Assignment" />
+    <relationship identifier="r128" source="nd-vercel" target="ar-vercel" xsi:type="Assignment" />
+    <relationship identifier="r129" source="ss-pyodide" target="ar-motor" xsi:type="Assignment" />
+    <relationship identifier="r130" source="ar-dist" target="ac-web" xsi:type="Realization" />
+    <relationship identifier="r131" source="ar-motor" target="ac-motor" xsi:type="Realization" />
+    <relationship identifier="r132" source="ar-motor" target="ac-api" xsi:type="Realization" />
+    <relationship identifier="r133" source="nd-vercel" target="ts-hosting" xsi:type="Realization" />
+    <relationship identifier="r134" source="ss-pyodide" target="ts-python" xsi:type="Realization" />
+    <relationship identifier="r135" source="ss-sqlite" target="ts-persistencia" xsi:type="Realization" />
+    <relationship identifier="r136" source="ts-hosting" target="ac-web" xsi:type="Serving" />
+    <relationship identifier="r137" source="ts-python" target="ac-motor" xsi:type="Serving" />
+    <relationship identifier="r138" source="ts-persistencia" target="ac-bitacora" xsi:type="Serving" />
+    <relationship identifier="r139" source="ts-persistencia" target="ac-libro" xsi:type="Serving" />
+    <relationship identifier="r140" source="dv-reciclador" target="ac-dispositivos" xsi:type="Association">
+      <name xml:lang="es">simulado por</name>
+    </relationship>
+    <relationship identifier="r141" source="dv-lector" target="ac-dispositivos" xsi:type="Association">
+      <name xml:lang="es">simulado por</name>
+    </relationship>
+    <relationship identifier="r142" source="dv-impresora" target="ac-dispositivos" xsi:type="Association">
+      <name xml:lang="es">simulado por</name>
+    </relationship>
+    <relationship identifier="r143" source="dv-camara" target="ac-dispositivos" xsi:type="Association">
+      <name xml:lang="es">simulado por</name>
+    </relationship>
+    <relationship identifier="r144" source="pa-enlace" target="nd-edge" xsi:type="Association" />
+    <relationship identifier="r145" source="pa-enlace" target="ac-enlace" xsi:type="Association">
+      <name xml:lang="es">implementado por</name>
+    </relationship>
+    <relationship identifier="r146" source="nd-navegador" target="ss-sqlite" xsi:type="Composition">
+      <name xml:lang="es">en memoria del worker</name>
+    </relationship>
+    <relationship identifier="r150" source="pl-base" target="pl-objetivo" xsi:type="Triggering" />
+    <relationship identifier="r151" source="pl-objetivo" target="pl-etapa2" xsi:type="Triggering" />
+    <relationship identifier="r152" source="gp-estado" target="pl-base" xsi:type="Association" />
+    <relationship identifier="r153" source="gp-estado" target="pl-objetivo" xsi:type="Association" />
+    <relationship identifier="r154" source="wp-calidad" target="pl-objetivo" xsi:type="Association" />
+    <relationship identifier="r155" source="wp-piloto" target="pl-etapa2" xsi:type="Association" />
+    <relationship identifier="r156" source="pl-objetivo" target="ac-motor" xsi:type="Aggregation" />
+    <relationship identifier="r157" source="pr-ia" target="pl-etapa2" xsi:type="Association" />
+  </relationships>
+  <propertyDefinitions>
+    <propertyDefinition identifier="pd-codigo" type="string">
+      <name xml:lang="es">código</name>
+    </propertyDefinition>
+  </propertyDefinitions>
+  <views>
+    <diagrams>
+      <view identifier="v-motivacion" xsi:type="Diagram">
+        <name xml:lang="es">Motivación</name>
+        <documentation xml:lang="es">Por qué existe Till y qué principios lo gobiernan. Los requisitos citan las reglas de docs/reglas.md.</documentation>
+        <node identifier="v-motivacion-st-cliente" elementRef="st-cliente" xsi:type="Element" x="20" y="20" w="220" h="70" />
+        <node identifier="v-motivacion-st-banco" elementRef="st-banco" xsi:type="Element" x="280" y="20" w="220" h="70" />
+        <node identifier="v-motivacion-st-operacion" elementRef="st-operacion" xsi:type="Element" x="540" y="20" w="220" h="70" />
+        <node identifier="v-motivacion-st-cumplimiento" elementRef="st-cumplimiento" xsi:type="Element" x="800" y="20" w="220" h="70" />
+        <node identifier="v-motivacion-dr-confianza" elementRef="dr-confianza" xsi:type="Element" x="20" y="140" w="220" h="70" />
+        <node identifier="v-motivacion-dr-sustitucion" elementRef="dr-sustitucion" xsi:type="Element" x="280" y="140" w="220" h="70" />
+        <node identifier="v-motivacion-dr-pci" elementRef="dr-pci" xsi:type="Element" x="540" y="140" w="220" h="70" />
+        <node identifier="v-motivacion-as-cargo" elementRef="as-cargo" xsi:type="Element" x="800" y="140" w="220" h="70" />
+        <node identifier="v-motivacion-go-exactitud" elementRef="go-exactitud" xsi:type="Element" x="20" y="260" w="220" h="70" />
+        <node identifier="v-motivacion-go-cuadre" elementRef="go-cuadre" xsi:type="Element" x="280" y="260" w="220" h="70" />
+        <node identifier="v-motivacion-go-disponibilidad" elementRef="go-disponibilidad" xsi:type="Element" x="540" y="260" w="220" h="70" />
+        <node identifier="v-motivacion-go-pan" elementRef="go-pan" xsi:type="Element" x="800" y="260" w="220" h="70" />
+        <node identifier="v-motivacion-pr-rector" elementRef="pr-rector" xsi:type="Element" x="20" y="380" w="220" h="70" />
+        <node identifier="v-motivacion-pr-una-vez" elementRef="pr-una-vez" xsi:type="Element" x="280" y="380" w="220" h="70" />
+        <node identifier="v-motivacion-pr-anexar" elementRef="pr-anexar" xsi:type="Element" x="540" y="380" w="220" h="70" />
+        <node identifier="v-motivacion-pr-ia" elementRef="pr-ia" xsi:type="Element" x="800" y="380" w="220" h="70" />
+        <node identifier="v-motivacion-rq-reversa" elementRef="rq-reversa" xsi:type="Element" x="20" y="500" w="220" h="70" />
+        <node identifier="v-motivacion-rq-recuperacion" elementRef="rq-recuperacion" xsi:type="Element" x="280" y="500" w="220" h="70" />
+        <node identifier="v-motivacion-rq-idempotencia" elementRef="rq-idempotencia" xsi:type="Element" x="540" y="500" w="220" h="70" />
+        <node identifier="v-motivacion-rq-auditoria" elementRef="rq-auditoria" xsi:type="Element" x="800" y="500" w="220" h="70" />
+        <node identifier="v-motivacion-rq-pan" elementRef="rq-pan" xsi:type="Element" x="20" y="620" w="220" h="70" />
+        <node identifier="v-motivacion-rq-cuadre" elementRef="rq-cuadre" xsi:type="Element" x="280" y="620" w="220" h="70" />
+        <node identifier="v-motivacion-co-pan-prueba" elementRef="co-pan-prueba" xsi:type="Element" x="540" y="620" w="220" h="70" />
+        <node identifier="v-motivacion-co-estatica" elementRef="co-estatica" xsi:type="Element" x="800" y="620" w="220" h="70" />
+        <connection identifier="v-motivacion-r01" relationshipRef="r01" xsi:type="Relationship" source="v-motivacion-st-cliente" target="v-motivacion-dr-confianza" />
+        <connection identifier="v-motivacion-r02" relationshipRef="r02" xsi:type="Relationship" source="v-motivacion-st-banco" target="v-motivacion-dr-sustitucion" />
+        <connection identifier="v-motivacion-r03" relationshipRef="r03" xsi:type="Relationship" source="v-motivacion-st-operacion" target="v-motivacion-dr-sustitucion" />
+        <connection identifier="v-motivacion-r04" relationshipRef="r04" xsi:type="Relationship" source="v-motivacion-st-cumplimiento" target="v-motivacion-dr-pci" />
+        <connection identifier="v-motivacion-r05" relationshipRef="r05" xsi:type="Relationship" source="v-motivacion-dr-confianza" target="v-motivacion-as-cargo" />
+        <connection identifier="v-motivacion-r06" relationshipRef="r06" xsi:type="Relationship" source="v-motivacion-as-cargo" target="v-motivacion-go-exactitud" />
+        <connection identifier="v-motivacion-r07" relationshipRef="r07" xsi:type="Relationship" source="v-motivacion-dr-sustitucion" target="v-motivacion-go-disponibilidad" />
+        <connection identifier="v-motivacion-r08" relationshipRef="r08" xsi:type="Relationship" source="v-motivacion-dr-pci" target="v-motivacion-go-pan" />
+        <connection identifier="v-motivacion-r09" relationshipRef="r09" xsi:type="Relationship" source="v-motivacion-dr-confianza" target="v-motivacion-go-cuadre" />
+        <connection identifier="v-motivacion-r10" relationshipRef="r10" xsi:type="Relationship" source="v-motivacion-pr-rector" target="v-motivacion-go-exactitud" />
+        <connection identifier="v-motivacion-r11" relationshipRef="r11" xsi:type="Relationship" source="v-motivacion-pr-una-vez" target="v-motivacion-go-exactitud" />
+        <connection identifier="v-motivacion-r12" relationshipRef="r12" xsi:type="Relationship" source="v-motivacion-pr-anexar" target="v-motivacion-go-cuadre" />
+        <connection identifier="v-motivacion-r13" relationshipRef="r13" xsi:type="Relationship" source="v-motivacion-rq-reversa" target="v-motivacion-pr-rector" />
+        <connection identifier="v-motivacion-r14" relationshipRef="r14" xsi:type="Relationship" source="v-motivacion-rq-recuperacion" target="v-motivacion-pr-rector" />
+        <connection identifier="v-motivacion-r15" relationshipRef="r15" xsi:type="Relationship" source="v-motivacion-rq-idempotencia" target="v-motivacion-pr-una-vez" />
+        <connection identifier="v-motivacion-r16" relationshipRef="r16" xsi:type="Relationship" source="v-motivacion-rq-auditoria" target="v-motivacion-pr-anexar" />
+        <connection identifier="v-motivacion-r17" relationshipRef="r17" xsi:type="Relationship" source="v-motivacion-rq-pan" target="v-motivacion-go-pan" />
+        <connection identifier="v-motivacion-r18" relationshipRef="r18" xsi:type="Relationship" source="v-motivacion-rq-cuadre" target="v-motivacion-go-cuadre" />
+        <connection identifier="v-motivacion-r19" relationshipRef="r19" xsi:type="Relationship" source="v-motivacion-co-pan-prueba" target="v-motivacion-rq-pan" />
+      </view>
+      <view identifier="v-negocio" xsi:type="Diagram">
+        <name xml:lang="es">Negocio</name>
+        <documentation xml:lang="es">Los servicios de ventanilla que el cajero automatiza y los procesos que los realizan.</documentation>
+        <node identifier="v-negocio-ba-cliente" elementRef="ba-cliente" xsi:type="Element" x="20" y="20" w="220" h="70" />
+        <node identifier="v-negocio-br-tarjetahabiente" elementRef="br-tarjetahabiente" xsi:type="Element" x="280" y="20" w="220" h="70" />
+        <node identifier="v-negocio-ba-banco" elementRef="ba-banco" xsi:type="Element" x="540" y="20" w="220" h="70" />
+        <node identifier="v-negocio-ba-operador" elementRef="ba-operador" xsi:type="Element" x="800" y="20" w="220" h="70" />
+        <node identifier="v-negocio-bs-retiro" elementRef="bs-retiro" xsi:type="Element" x="20" y="140" w="220" h="70" />
+        <node identifier="v-negocio-bs-deposito" elementRef="bs-deposito" xsi:type="Element" x="280" y="140" w="220" h="70" />
+        <node identifier="v-negocio-bs-pago" elementRef="bs-pago" xsi:type="Element" x="540" y="140" w="220" h="70" />
+        <node identifier="v-negocio-bs-remesa" elementRef="bs-remesa" xsi:type="Element" x="800" y="140" w="220" h="70" />
+        <node identifier="v-negocio-bs-cuadre" elementRef="bs-cuadre" xsi:type="Element" x="20" y="260" w="220" h="70" />
+        <node identifier="v-negocio-bs-flota" elementRef="bs-flota" xsi:type="Element" x="280" y="260" w="220" h="70" />
+        <node identifier="v-negocio-bp-operacion" elementRef="bp-operacion" xsi:type="Element" x="540" y="260" w="220" h="70" />
+        <node identifier="v-negocio-bp-reversa" elementRef="bp-reversa" xsi:type="Element" x="800" y="260" w="220" h="70" />
+        <node identifier="v-negocio-bp-recuperacion" elementRef="bp-recuperacion" xsi:type="Element" x="20" y="380" w="220" h="70" />
+        <node identifier="v-negocio-bp-cuadre" elementRef="bp-cuadre" xsi:type="Element" x="280" y="380" w="220" h="70" />
+        <node identifier="v-negocio-bo-operacion" elementRef="bo-operacion" xsi:type="Element" x="540" y="380" w="220" h="70" />
+        <node identifier="v-negocio-bo-asiento" elementRef="bo-asiento" xsi:type="Element" x="800" y="380" w="220" h="70" />
+        <node identifier="v-negocio-bo-reversa" elementRef="bo-reversa" xsi:type="Element" x="20" y="500" w="220" h="70" />
+        <node identifier="v-negocio-bo-comprobante" elementRef="bo-comprobante" xsi:type="Element" x="280" y="500" w="220" h="70" />
+        <node identifier="v-negocio-bo-aclaracion" elementRef="bo-aclaracion" xsi:type="Element" x="540" y="500" w="220" h="70" />
+        <connection identifier="v-negocio-r30" relationshipRef="r30" xsi:type="Relationship" source="v-negocio-ba-cliente" target="v-negocio-br-tarjetahabiente" />
+        <connection identifier="v-negocio-r31" relationshipRef="r31" xsi:type="Relationship" source="v-negocio-bs-retiro" target="v-negocio-br-tarjetahabiente" />
+        <connection identifier="v-negocio-r32" relationshipRef="r32" xsi:type="Relationship" source="v-negocio-bs-deposito" target="v-negocio-br-tarjetahabiente" />
+        <connection identifier="v-negocio-r33" relationshipRef="r33" xsi:type="Relationship" source="v-negocio-bs-pago" target="v-negocio-br-tarjetahabiente" />
+        <connection identifier="v-negocio-r34" relationshipRef="r34" xsi:type="Relationship" source="v-negocio-bs-remesa" target="v-negocio-br-tarjetahabiente" />
+        <connection identifier="v-negocio-r35" relationshipRef="r35" xsi:type="Relationship" source="v-negocio-bs-cuadre" target="v-negocio-ba-operador" />
+        <connection identifier="v-negocio-r36" relationshipRef="r36" xsi:type="Relationship" source="v-negocio-bs-flota" target="v-negocio-ba-operador" />
+        <connection identifier="v-negocio-r37" relationshipRef="r37" xsi:type="Relationship" source="v-negocio-bp-operacion" target="v-negocio-bs-retiro" />
+        <connection identifier="v-negocio-r38" relationshipRef="r38" xsi:type="Relationship" source="v-negocio-bp-operacion" target="v-negocio-bs-deposito" />
+        <connection identifier="v-negocio-r39" relationshipRef="r39" xsi:type="Relationship" source="v-negocio-bp-operacion" target="v-negocio-bs-pago" />
+        <connection identifier="v-negocio-r40" relationshipRef="r40" xsi:type="Relationship" source="v-negocio-bp-operacion" target="v-negocio-bs-remesa" />
+        <connection identifier="v-negocio-r41" relationshipRef="r41" xsi:type="Relationship" source="v-negocio-bp-cuadre" target="v-negocio-bs-cuadre" />
+        <connection identifier="v-negocio-r42" relationshipRef="r42" xsi:type="Relationship" source="v-negocio-bp-operacion" target="v-negocio-bp-reversa" />
+        <connection identifier="v-negocio-r43" relationshipRef="r43" xsi:type="Relationship" source="v-negocio-bp-recuperacion" target="v-negocio-bp-reversa" />
+        <connection identifier="v-negocio-r44" relationshipRef="r44" xsi:type="Relationship" source="v-negocio-bp-operacion" target="v-negocio-bo-operacion" />
+        <connection identifier="v-negocio-r45" relationshipRef="r45" xsi:type="Relationship" source="v-negocio-bp-operacion" target="v-negocio-bo-comprobante" />
+        <connection identifier="v-negocio-r46" relationshipRef="r46" xsi:type="Relationship" source="v-negocio-bp-operacion" target="v-negocio-bo-aclaracion" />
+        <connection identifier="v-negocio-r47" relationshipRef="r47" xsi:type="Relationship" source="v-negocio-bp-operacion" target="v-negocio-bo-asiento" />
+        <connection identifier="v-negocio-r48" relationshipRef="r48" xsi:type="Relationship" source="v-negocio-bp-reversa" target="v-negocio-bo-reversa" />
+        <connection identifier="v-negocio-r49" relationshipRef="r49" xsi:type="Relationship" source="v-negocio-bp-cuadre" target="v-negocio-bo-asiento" />
+        <connection identifier="v-negocio-r50" relationshipRef="r50" xsi:type="Relationship" source="v-negocio-ba-banco" target="v-negocio-bp-operacion" />
+        <connection identifier="v-negocio-r51" relationshipRef="r51" xsi:type="Relationship" source="v-negocio-ba-banco" target="v-negocio-bp-reversa" />
+      </view>
+      <view identifier="v-aplicacion" xsi:type="Diagram">
+        <name xml:lang="es">Aplicación</name>
+        <documentation xml:lang="es">Los componentes reales del código (propiedad «código») y los servicios que dan al negocio.</documentation>
+        <node identifier="v-aplicacion-ac-web" elementRef="ac-web" xsi:type="Element" x="20" y="20" w="220" h="70" />
+        <node identifier="v-aplicacion-ac-motor" elementRef="ac-motor" xsi:type="Element" x="280" y="20" w="220" h="70" />
+        <node identifier="v-aplicacion-ai-rest" elementRef="ai-rest" xsi:type="Element" x="540" y="20" w="220" h="70" />
+        <node identifier="v-aplicacion-ac-api" elementRef="ac-api" xsi:type="Element" x="800" y="20" w="220" h="70" />
+        <node identifier="v-aplicacion-ac-sesiones" elementRef="ac-sesiones" xsi:type="Element" x="20" y="140" w="220" h="70" />
+        <node identifier="v-aplicacion-ac-red" elementRef="ac-red" xsi:type="Element" x="280" y="140" w="220" h="70" />
+        <node identifier="v-aplicacion-ac-flota" elementRef="ac-flota" xsi:type="Element" x="540" y="140" w="220" h="70" />
+        <node identifier="v-aplicacion-ac-cuadre" elementRef="ac-cuadre" xsi:type="Element" x="800" y="140" w="220" h="70" />
+        <node identifier="v-aplicacion-ac-maquina" elementRef="ac-maquina" xsi:type="Element" x="20" y="260" w="220" h="70" />
+        <node identifier="v-aplicacion-ac-bitacora" elementRef="ac-bitacora" xsi:type="Element" x="280" y="260" w="220" h="70" />
+        <node identifier="v-aplicacion-ac-reversas" elementRef="ac-reversas" xsi:type="Element" x="540" y="260" w="220" h="70" />
+        <node identifier="v-aplicacion-ac-libro" elementRef="ac-libro" xsi:type="Element" x="800" y="260" w="220" h="70" />
+        <node identifier="v-aplicacion-ac-dispositivos" elementRef="ac-dispositivos" xsi:type="Element" x="20" y="380" w="220" h="70" />
+        <node identifier="v-aplicacion-ai-dispositivos" elementRef="ai-dispositivos" xsi:type="Element" x="280" y="380" w="220" h="70" />
+        <node identifier="v-aplicacion-ac-seguridad" elementRef="ac-seguridad" xsi:type="Element" x="540" y="380" w="220" h="70" />
+        <node identifier="v-aplicacion-ac-cliente-iso" elementRef="ac-cliente-iso" xsi:type="Element" x="800" y="380" w="220" h="70" />
+        <node identifier="v-aplicacion-ai-iso" elementRef="ai-iso" xsi:type="Element" x="20" y="500" w="220" h="70" />
+        <node identifier="v-aplicacion-ac-enlace" elementRef="ac-enlace" xsi:type="Element" x="280" y="500" w="220" h="70" />
+        <node identifier="v-aplicacion-ac-traza" elementRef="ac-traza" xsi:type="Element" x="540" y="500" w="220" h="70" />
+        <node identifier="v-aplicacion-ac-autorizador" elementRef="ac-autorizador" xsi:type="Element" x="800" y="500" w="220" h="70" />
+        <node identifier="v-aplicacion-as-autorizar" elementRef="as-autorizar" xsi:type="Element" x="20" y="620" w="220" h="70" />
+        <node identifier="v-aplicacion-as-revertir" elementRef="as-revertir" xsi:type="Element" x="280" y="620" w="220" h="70" />
+        <node identifier="v-aplicacion-as-registrar" elementRef="as-registrar" xsi:type="Element" x="540" y="620" w="220" h="70" />
+        <node identifier="v-aplicacion-as-cuadrar" elementRef="as-cuadrar" xsi:type="Element" x="800" y="620" w="220" h="70" />
+        <node identifier="v-aplicacion-as-simular" elementRef="as-simular" xsi:type="Element" x="20" y="740" w="220" h="70" />
+        <node identifier="v-aplicacion-do-transacciones" elementRef="do-transacciones" xsi:type="Element" x="280" y="740" w="220" h="70" />
+        <node identifier="v-aplicacion-do-reversas" elementRef="do-reversas" xsi:type="Element" x="540" y="740" w="220" h="70" />
+        <node identifier="v-aplicacion-do-asientos" elementRef="do-asientos" xsi:type="Element" x="800" y="740" w="220" h="70" />
+        <node identifier="v-aplicacion-do-mensaje" elementRef="do-mensaje" xsi:type="Element" x="20" y="860" w="220" h="70" />
+        <node identifier="v-aplicacion-do-token" elementRef="do-token" xsi:type="Element" x="280" y="860" w="220" h="70" />
+        <connection identifier="v-aplicacion-r65" relationshipRef="r65" xsi:type="Relationship" source="v-aplicacion-ac-maquina" target="v-aplicacion-as-autorizar" />
+        <connection identifier="v-aplicacion-r66" relationshipRef="r66" xsi:type="Relationship" source="v-aplicacion-ac-reversas" target="v-aplicacion-as-revertir" />
+        <connection identifier="v-aplicacion-r67" relationshipRef="r67" xsi:type="Relationship" source="v-aplicacion-ac-libro" target="v-aplicacion-as-registrar" />
+        <connection identifier="v-aplicacion-r68" relationshipRef="r68" xsi:type="Relationship" source="v-aplicacion-ac-cuadre" target="v-aplicacion-as-cuadrar" />
+        <connection identifier="v-aplicacion-r69" relationshipRef="r69" xsi:type="Relationship" source="v-aplicacion-ac-flota" target="v-aplicacion-as-simular" />
+        <connection identifier="v-aplicacion-r80" relationshipRef="r80" xsi:type="Relationship" source="v-aplicacion-ac-api" target="v-aplicacion-ai-rest" />
+        <connection identifier="v-aplicacion-r81" relationshipRef="r81" xsi:type="Relationship" source="v-aplicacion-ac-cliente-iso" target="v-aplicacion-ai-iso" />
+        <connection identifier="v-aplicacion-r82" relationshipRef="r82" xsi:type="Relationship" source="v-aplicacion-ac-dispositivos" target="v-aplicacion-ai-dispositivos" />
+        <connection identifier="v-aplicacion-r83" relationshipRef="r83" xsi:type="Relationship" source="v-aplicacion-ac-api" target="v-aplicacion-ac-sesiones" />
+        <connection identifier="v-aplicacion-r84" relationshipRef="r84" xsi:type="Relationship" source="v-aplicacion-ac-bitacora" target="v-aplicacion-ac-maquina" />
+        <connection identifier="v-aplicacion-r85" relationshipRef="r85" xsi:type="Relationship" source="v-aplicacion-ac-reversas" target="v-aplicacion-ac-maquina" />
+        <connection identifier="v-aplicacion-r86" relationshipRef="r86" xsi:type="Relationship" source="v-aplicacion-ac-libro" target="v-aplicacion-ac-maquina" />
+        <connection identifier="v-aplicacion-r87" relationshipRef="r87" xsi:type="Relationship" source="v-aplicacion-ac-cliente-iso" target="v-aplicacion-ac-maquina" />
+        <connection identifier="v-aplicacion-r88" relationshipRef="r88" xsi:type="Relationship" source="v-aplicacion-ai-dispositivos" target="v-aplicacion-ac-maquina" />
+        <connection identifier="v-aplicacion-r89" relationshipRef="r89" xsi:type="Relationship" source="v-aplicacion-ac-enlace" target="v-aplicacion-ac-cliente-iso" />
+        <connection identifier="v-aplicacion-r90" relationshipRef="r90" xsi:type="Relationship" source="v-aplicacion-ac-traza" target="v-aplicacion-ac-cliente-iso" />
+        <connection identifier="v-aplicacion-r91" relationshipRef="r91" xsi:type="Relationship" source="v-aplicacion-ac-seguridad" target="v-aplicacion-ac-dispositivos" />
+        <connection identifier="v-aplicacion-r92" relationshipRef="r92" xsi:type="Relationship" source="v-aplicacion-ac-maquina" target="v-aplicacion-ac-cuadre" />
+        <connection identifier="v-aplicacion-r93" relationshipRef="r93" xsi:type="Relationship" source="v-aplicacion-ac-autorizador" target="v-aplicacion-ac-cuadre" />
+        <connection identifier="v-aplicacion-r94" relationshipRef="r94" xsi:type="Relationship" source="v-aplicacion-ac-red" target="v-aplicacion-ac-api" />
+        <connection identifier="v-aplicacion-r95" relationshipRef="r95" xsi:type="Relationship" source="v-aplicacion-ac-cuadre" target="v-aplicacion-ac-api" />
+        <connection identifier="v-aplicacion-r96" relationshipRef="r96" xsi:type="Relationship" source="v-aplicacion-ac-flota" target="v-aplicacion-ac-api" />
+        <connection identifier="v-aplicacion-r97" relationshipRef="r97" xsi:type="Relationship" source="v-aplicacion-ac-api" target="v-aplicacion-ac-motor" />
+        <connection identifier="v-aplicacion-r98" relationshipRef="r98" xsi:type="Relationship" source="v-aplicacion-ac-motor" target="v-aplicacion-ac-web" />
+        <connection identifier="v-aplicacion-r99" relationshipRef="r99" xsi:type="Relationship" source="v-aplicacion-ai-rest" target="v-aplicacion-ac-web" />
+        <connection identifier="v-aplicacion-r100" relationshipRef="r100" xsi:type="Relationship" source="v-aplicacion-ac-enlace" target="v-aplicacion-ac-autorizador" />
+        <connection identifier="v-aplicacion-r101" relationshipRef="r101" xsi:type="Relationship" source="v-aplicacion-ac-reversas" target="v-aplicacion-ac-cliente-iso" />
+        <connection identifier="v-aplicacion-r102" relationshipRef="r102" xsi:type="Relationship" source="v-aplicacion-ac-bitacora" target="v-aplicacion-do-transacciones" />
+        <connection identifier="v-aplicacion-r103" relationshipRef="r103" xsi:type="Relationship" source="v-aplicacion-ac-bitacora" target="v-aplicacion-do-reversas" />
+        <connection identifier="v-aplicacion-r104" relationshipRef="r104" xsi:type="Relationship" source="v-aplicacion-ac-reversas" target="v-aplicacion-do-reversas" />
+        <connection identifier="v-aplicacion-r105" relationshipRef="r105" xsi:type="Relationship" source="v-aplicacion-ac-libro" target="v-aplicacion-do-asientos" />
+        <connection identifier="v-aplicacion-r106" relationshipRef="r106" xsi:type="Relationship" source="v-aplicacion-ac-cuadre" target="v-aplicacion-do-asientos" />
+        <connection identifier="v-aplicacion-r107" relationshipRef="r107" xsi:type="Relationship" source="v-aplicacion-ac-cliente-iso" target="v-aplicacion-do-mensaje" />
+        <connection identifier="v-aplicacion-r108" relationshipRef="r108" xsi:type="Relationship" source="v-aplicacion-ac-traza" target="v-aplicacion-do-mensaje" />
+        <connection identifier="v-aplicacion-r109" relationshipRef="r109" xsi:type="Relationship" source="v-aplicacion-ac-seguridad" target="v-aplicacion-do-token" />
+      </view>
+      <view identifier="v-tecnologia" xsi:type="Diagram">
+        <name xml:lang="es">Tecnología</name>
+        <documentation xml:lang="es">Dónde corre: la demo publicada es estática y la API corre en el navegador; el cajero de referencia, en el borde.</documentation>
+        <node identifier="v-tecnologia-nd-vercel" elementRef="nd-vercel" xsi:type="Element" x="20" y="20" w="220" h="70" />
+        <node identifier="v-tecnologia-ar-dist" elementRef="ar-dist" xsi:type="Element" x="280" y="20" w="220" h="70" />
+        <node identifier="v-tecnologia-ar-vercel" elementRef="ar-vercel" xsi:type="Element" x="540" y="20" w="220" h="70" />
+        <node identifier="v-tecnologia-ts-hosting" elementRef="ts-hosting" xsi:type="Element" x="800" y="20" w="220" h="70" />
+        <node identifier="v-tecnologia-nd-navegador" elementRef="nd-navegador" xsi:type="Element" x="20" y="140" w="220" h="70" />
+        <node identifier="v-tecnologia-ss-worker" elementRef="ss-worker" xsi:type="Element" x="280" y="140" w="220" h="70" />
+        <node identifier="v-tecnologia-ss-pyodide" elementRef="ss-pyodide" xsi:type="Element" x="540" y="140" w="220" h="70" />
+        <node identifier="v-tecnologia-ar-motor" elementRef="ar-motor" xsi:type="Element" x="800" y="140" w="220" h="70" />
+        <node identifier="v-tecnologia-ts-python" elementRef="ts-python" xsi:type="Element" x="20" y="260" w="220" h="70" />
+        <node identifier="v-tecnologia-ss-sqlite" elementRef="ss-sqlite" xsi:type="Element" x="280" y="260" w="220" h="70" />
+        <node identifier="v-tecnologia-ts-persistencia" elementRef="ts-persistencia" xsi:type="Element" x="540" y="260" w="220" h="70" />
+        <node identifier="v-tecnologia-nd-ci" elementRef="nd-ci" xsi:type="Element" x="800" y="260" w="220" h="70" />
+        <node identifier="v-tecnologia-ss-cpython" elementRef="ss-cpython" xsi:type="Element" x="20" y="380" w="220" h="70" />
+        <node identifier="v-tecnologia-nd-edge" elementRef="nd-edge" xsi:type="Element" x="280" y="380" w="220" h="70" />
+        <node identifier="v-tecnologia-pa-enlace" elementRef="pa-enlace" xsi:type="Element" x="540" y="380" w="220" h="70" />
+        <node identifier="v-tecnologia-dv-reciclador" elementRef="dv-reciclador" xsi:type="Element" x="800" y="380" w="220" h="70" />
+        <node identifier="v-tecnologia-dv-lector" elementRef="dv-lector" xsi:type="Element" x="20" y="500" w="220" h="70" />
+        <node identifier="v-tecnologia-dv-impresora" elementRef="dv-impresora" xsi:type="Element" x="280" y="500" w="220" h="70" />
+        <node identifier="v-tecnologia-dv-camara" elementRef="dv-camara" xsi:type="Element" x="540" y="500" w="220" h="70" />
+        <node identifier="v-tecnologia-ac-web" elementRef="ac-web" xsi:type="Element" x="800" y="500" w="220" h="70" />
+        <node identifier="v-tecnologia-ac-motor" elementRef="ac-motor" xsi:type="Element" x="20" y="620" w="220" h="70" />
+        <node identifier="v-tecnologia-ac-api" elementRef="ac-api" xsi:type="Element" x="280" y="620" w="220" h="70" />
+        <node identifier="v-tecnologia-ac-bitacora" elementRef="ac-bitacora" xsi:type="Element" x="540" y="620" w="220" h="70" />
+        <node identifier="v-tecnologia-ac-libro" elementRef="ac-libro" xsi:type="Element" x="800" y="620" w="220" h="70" />
+        <node identifier="v-tecnologia-ac-dispositivos" elementRef="ac-dispositivos" xsi:type="Element" x="20" y="740" w="220" h="70" />
+        <node identifier="v-tecnologia-ac-enlace" elementRef="ac-enlace" xsi:type="Element" x="280" y="740" w="220" h="70" />
+        <connection identifier="v-tecnologia-r97" relationshipRef="r97" xsi:type="Relationship" source="v-tecnologia-ac-api" target="v-tecnologia-ac-motor" />
+        <connection identifier="v-tecnologia-r98" relationshipRef="r98" xsi:type="Relationship" source="v-tecnologia-ac-motor" target="v-tecnologia-ac-web" />
+        <connection identifier="v-tecnologia-r120" relationshipRef="r120" xsi:type="Relationship" source="v-tecnologia-nd-navegador" target="v-tecnologia-ss-worker" />
+        <connection identifier="v-tecnologia-r121" relationshipRef="r121" xsi:type="Relationship" source="v-tecnologia-nd-navegador" target="v-tecnologia-ss-pyodide" />
+        <connection identifier="v-tecnologia-r122" relationshipRef="r122" xsi:type="Relationship" source="v-tecnologia-nd-ci" target="v-tecnologia-ss-cpython" />
+        <connection identifier="v-tecnologia-r123" relationshipRef="r123" xsi:type="Relationship" source="v-tecnologia-nd-edge" target="v-tecnologia-dv-reciclador" />
+        <connection identifier="v-tecnologia-r124" relationshipRef="r124" xsi:type="Relationship" source="v-tecnologia-nd-edge" target="v-tecnologia-dv-lector" />
+        <connection identifier="v-tecnologia-r125" relationshipRef="r125" xsi:type="Relationship" source="v-tecnologia-nd-edge" target="v-tecnologia-dv-impresora" />
+        <connection identifier="v-tecnologia-r126" relationshipRef="r126" xsi:type="Relationship" source="v-tecnologia-nd-edge" target="v-tecnologia-dv-camara" />
+        <connection identifier="v-tecnologia-r127" relationshipRef="r127" xsi:type="Relationship" source="v-tecnologia-nd-vercel" target="v-tecnologia-ar-dist" />
+        <connection identifier="v-tecnologia-r128" relationshipRef="r128" xsi:type="Relationship" source="v-tecnologia-nd-vercel" target="v-tecnologia-ar-vercel" />
+        <connection identifier="v-tecnologia-r129" relationshipRef="r129" xsi:type="Relationship" source="v-tecnologia-ss-pyodide" target="v-tecnologia-ar-motor" />
+        <connection identifier="v-tecnologia-r130" relationshipRef="r130" xsi:type="Relationship" source="v-tecnologia-ar-dist" target="v-tecnologia-ac-web" />
+        <connection identifier="v-tecnologia-r131" relationshipRef="r131" xsi:type="Relationship" source="v-tecnologia-ar-motor" target="v-tecnologia-ac-motor" />
+        <connection identifier="v-tecnologia-r132" relationshipRef="r132" xsi:type="Relationship" source="v-tecnologia-ar-motor" target="v-tecnologia-ac-api" />
+        <connection identifier="v-tecnologia-r133" relationshipRef="r133" xsi:type="Relationship" source="v-tecnologia-nd-vercel" target="v-tecnologia-ts-hosting" />
+        <connection identifier="v-tecnologia-r134" relationshipRef="r134" xsi:type="Relationship" source="v-tecnologia-ss-pyodide" target="v-tecnologia-ts-python" />
+        <connection identifier="v-tecnologia-r135" relationshipRef="r135" xsi:type="Relationship" source="v-tecnologia-ss-sqlite" target="v-tecnologia-ts-persistencia" />
+        <connection identifier="v-tecnologia-r136" relationshipRef="r136" xsi:type="Relationship" source="v-tecnologia-ts-hosting" target="v-tecnologia-ac-web" />
+        <connection identifier="v-tecnologia-r137" relationshipRef="r137" xsi:type="Relationship" source="v-tecnologia-ts-python" target="v-tecnologia-ac-motor" />
+        <connection identifier="v-tecnologia-r138" relationshipRef="r138" xsi:type="Relationship" source="v-tecnologia-ts-persistencia" target="v-tecnologia-ac-bitacora" />
+        <connection identifier="v-tecnologia-r139" relationshipRef="r139" xsi:type="Relationship" source="v-tecnologia-ts-persistencia" target="v-tecnologia-ac-libro" />
+        <connection identifier="v-tecnologia-r140" relationshipRef="r140" xsi:type="Relationship" source="v-tecnologia-dv-reciclador" target="v-tecnologia-ac-dispositivos" />
+        <connection identifier="v-tecnologia-r141" relationshipRef="r141" xsi:type="Relationship" source="v-tecnologia-dv-lector" target="v-tecnologia-ac-dispositivos" />
+        <connection identifier="v-tecnologia-r142" relationshipRef="r142" xsi:type="Relationship" source="v-tecnologia-dv-impresora" target="v-tecnologia-ac-dispositivos" />
+        <connection identifier="v-tecnologia-r143" relationshipRef="r143" xsi:type="Relationship" source="v-tecnologia-dv-camara" target="v-tecnologia-ac-dispositivos" />
+        <connection identifier="v-tecnologia-r144" relationshipRef="r144" xsi:type="Relationship" source="v-tecnologia-pa-enlace" target="v-tecnologia-nd-edge" />
+        <connection identifier="v-tecnologia-r145" relationshipRef="r145" xsi:type="Relationship" source="v-tecnologia-pa-enlace" target="v-tecnologia-ac-enlace" />
+        <connection identifier="v-tecnologia-r146" relationshipRef="r146" xsi:type="Relationship" source="v-tecnologia-nd-navegador" target="v-tecnologia-ss-sqlite" />
+      </view>
+      <view identifier="v-migracion" xsi:type="Diagram">
+        <name xml:lang="es">Implementación y migración</name>
+        <documentation xml:lang="es">Línea base, objetivo y Etapa 2 (ver docs/arquitectura/vision.md).</documentation>
+        <node identifier="v-migracion-pl-base" elementRef="pl-base" xsi:type="Element" x="20" y="20" w="220" h="70" />
+        <node identifier="v-migracion-gp-estado" elementRef="gp-estado" xsi:type="Element" x="280" y="20" w="220" h="70" />
+        <node identifier="v-migracion-pl-objetivo" elementRef="pl-objetivo" xsi:type="Element" x="540" y="20" w="220" h="70" />
+        <node identifier="v-migracion-pl-etapa2" elementRef="pl-etapa2" xsi:type="Element" x="800" y="20" w="220" h="70" />
+        <node identifier="v-migracion-wp-calidad" elementRef="wp-calidad" xsi:type="Element" x="20" y="140" w="220" h="70" />
+        <node identifier="v-migracion-wp-piloto" elementRef="wp-piloto" xsi:type="Element" x="280" y="140" w="220" h="70" />
+        <node identifier="v-migracion-ac-motor" elementRef="ac-motor" xsi:type="Element" x="540" y="140" w="220" h="70" />
+        <node identifier="v-migracion-pr-ia" elementRef="pr-ia" xsi:type="Element" x="800" y="140" w="220" h="70" />
+        <connection identifier="v-migracion-r150" relationshipRef="r150" xsi:type="Relationship" source="v-migracion-pl-base" target="v-migracion-pl-objetivo" />
+        <connection identifier="v-migracion-r151" relationshipRef="r151" xsi:type="Relationship" source="v-migracion-pl-objetivo" target="v-migracion-pl-etapa2" />
+        <connection identifier="v-migracion-r152" relationshipRef="r152" xsi:type="Relationship" source="v-migracion-gp-estado" target="v-migracion-pl-base" />
+        <connection identifier="v-migracion-r153" relationshipRef="r153" xsi:type="Relationship" source="v-migracion-gp-estado" target="v-migracion-pl-objetivo" />
+        <connection identifier="v-migracion-r154" relationshipRef="r154" xsi:type="Relationship" source="v-migracion-wp-calidad" target="v-migracion-pl-objetivo" />
+        <connection identifier="v-migracion-r155" relationshipRef="r155" xsi:type="Relationship" source="v-migracion-wp-piloto" target="v-migracion-pl-etapa2" />
+        <connection identifier="v-migracion-r156" relationshipRef="r156" xsi:type="Relationship" source="v-migracion-pl-objetivo" target="v-migracion-ac-motor" />
+        <connection identifier="v-migracion-r157" relationshipRef="r157" xsi:type="Relationship" source="v-migracion-pr-ia" target="v-migracion-pl-etapa2" />
+      </view>
+    </diagrams>
+  </views>
+</model>
