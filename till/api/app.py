@@ -122,6 +122,13 @@ async def red_de(ent: Entorno = Depends(entorno_de)) -> Red:
     return ent.red
 
 
+# Respuestas de error documentadas en el contrato (además del 422 de validación que agrega FastAPI).
+NO_EXISTE_CAJERO = {404: {"description": "No existe el cajero indicado"}}
+NO_EXISTE_OPERACION = {404: {"description": "No existe la operación indicada"}}
+FUERA_DE_SERVICIO = {503: {"description": "El cajero está fuera de servicio por un corte de energía simulado: hay que reiniciarlo"}}
+SIN_SIMULACION = {404: {"description": "La sesión todavía no ha corrido una simulación de flota"}}
+
+
 def cajero_o_404(red: Red, terminal: str):
     if terminal not in red.cajeros:
         raise HTTPException(404, f"no existe el cajero {terminal}")
@@ -134,6 +141,7 @@ def _rutas() -> APIRouter:
     # -- general ----------------------------------------------------------------------
     @r.get("/salud", tags=["general"])
     async def salud(request: Request, red: Red = Depends(red_de)) -> dict[str, Any]:
+        """Estado de la red: versión, instancia, cajeros fuera de servicio, libro balanceado y reversas pendientes."""
         return {
             "estado": "ok",
             "version": __version__,
@@ -163,6 +171,7 @@ def _rutas() -> APIRouter:
     # -- cajeros ---------------------------------------------------------------------
     @r.get("/cajeros", tags=["cajeros"])
     async def listar_cajeros(red: Red = Depends(red_de)) -> list[dict[str, Any]]:
+        """Cada cajero de la red con su efectivo por casete y el conteo de operaciones por estado."""
         res = []
         for t, c in red.cajeros.items():
             res.append({
@@ -175,8 +184,9 @@ def _rutas() -> APIRouter:
             })
         return res
 
-    @r.get("/cajeros/{terminal}", tags=["cajeros"])
+    @r.get("/cajeros/{terminal}", tags=["cajeros"], responses=NO_EXISTE_CAJERO)
     async def detalle_cajero(terminal: str, red: Red = Depends(red_de)) -> dict[str, Any]:
+        """Estado de los dispositivos del cajero, sus eventos recientes y sus últimas operaciones."""
         c = cajero_o_404(red, terminal)
         return {
             "terminal": terminal,
@@ -189,7 +199,7 @@ def _rutas() -> APIRouter:
             "ultimas_operaciones": [_con_texto(x) for x in red.bitacora.listar(terminal, 10)],
         }
 
-    @r.get("/cajeros/{terminal}/tablero", tags=["cajeros"])
+    @r.get("/cajeros/{terminal}/tablero", tags=["cajeros"], responses=NO_EXISTE_CAJERO)
     async def tablero(
         request: Request, terminal: str, asientos: int = Query(8, ge=1, le=100), red: Red = Depends(red_de)
     ) -> dict[str, Any]:
@@ -214,13 +224,18 @@ def _rutas() -> APIRouter:
             "ultima_operacion": ultimas[0]["id"] if ultimas else None,
         }
 
-    @r.post("/cajeros/{terminal}/operaciones", tags=["cajeros"])
+    @r.post("/cajeros/{terminal}/operaciones", tags=["cajeros"], responses=NO_EXISTE_CAJERO | FUERA_DE_SERVICIO)
     async def operar(
         terminal: str,
         entrada: OperacionEntrada,
         idempotency_key: str | None = Header(default=None),
         red: Red = Depends(red_de),
     ) -> dict[str, Any]:
+        """Ejecuta una operación completa (retiro, depósito, pago de crédito o remesa) con una tarjeta de prueba.
+
+        Exige llave de idempotencia (encabezado ``Idempotency-Key`` o ``llave_idem``): repetir la misma solicitud
+        devuelve la operación original (``repetida``); reutilizar la llave con otra solicitud da 422. Un corte de
+        energía simulado responde 503 con la operación y el siguiente paso (reiniciar)."""
         c = cajero_o_404(red, terminal)
         llave = idempotency_key or entrada.llave_idem
         if not llave:
@@ -247,14 +262,15 @@ def _rutas() -> APIRouter:
             }) from None  # el corte ya quedó en la bitácora; el cliente sólo necesita el 503 y el siguiente paso
         return _con_texto(res.como_dict())
 
-    @r.get("/cajeros/{terminal}/operaciones", tags=["cajeros"])
+    @r.get("/cajeros/{terminal}/operaciones", tags=["cajeros"], responses=NO_EXISTE_CAJERO)
     async def listar_operaciones(
         terminal: str, limite: int = Query(20, ge=1, le=500), red: Red = Depends(red_de)
     ) -> list[dict[str, Any]]:
+        """Las operaciones más recientes del cajero, de la más nueva a la más vieja."""
         cajero_o_404(red, terminal)
         return [_con_texto(x) for x in red.bitacora.listar(terminal, limite)]
 
-    @r.get("/operaciones/{tx_id}", tags=["cajeros"])
+    @r.get("/operaciones/{tx_id}", tags=["cajeros"], responses=NO_EXISTE_OPERACION)
     async def detalle_operacion(tx_id: str, red: Red = Depends(red_de)) -> dict[str, Any]:
         """La operación con su historial, su reversa, sus asientos, sus mensajes ISO 8583 y su comprobante."""
         tx = red.bitacora.obtener(tx_id)
@@ -270,23 +286,26 @@ def _rutas() -> APIRouter:
             "comprobante": hw.impresora.por_referencia.get(tx_id) if hw else None,
         }
 
-    @r.post("/cajeros/{terminal}/reiniciar", tags=["cajeros"])
+    @r.post("/cajeros/{terminal}/reiniciar", tags=["cajeros"], responses=NO_EXISTE_CAJERO)
     async def reiniciar(terminal: str, red: Red = Depends(red_de)) -> dict[str, Any]:
         """Simula reiniciar el proceso del cajero: arranque de dispositivos y recuperación."""
         cajero_o_404(red, terminal)
         nuevo = red.crear_cajero(terminal)
         return await nuevo.recuperar()
 
-    @r.get("/cajeros/{terminal}/cuadre", tags=["cuadre"])
+    @r.get("/cajeros/{terminal}/cuadre", tags=["cuadre"], responses=NO_EXISTE_CAJERO | FUERA_DE_SERVICIO)
     async def cuadre(terminal: str, drenar: bool = True, red: Red = Depends(red_de)) -> dict[str, Any]:
+        """Cuadre de fin de día a tres bandas: efectivo físico contra libro mayor, libro contra totales del banco y
+        lo que explica una diferencia legítima. Con ``drenar`` (por omisión) antes reintenta las reversas pendientes."""
         c = cajero_o_404(red, terminal)
         if c.caido:
             raise HTTPException(503, "el cajero está fuera de servicio: reinícielo antes del cuadre")
         return await cuadrar(c, red.host, drenar_reversas=drenar)
 
     # -- fallas --------------------------------------------------------------------------
-    @r.post("/cajeros/{terminal}/fallas", tags=["fallas"])
+    @r.post("/cajeros/{terminal}/fallas", tags=["fallas"], responses=NO_EXISTE_CAJERO)
     async def programar_falla(terminal: str, entrada: FallaEntrada, red: Red = Depends(red_de)) -> dict[str, Any]:
+        """Programa una falla de dispositivo para los siguientes comandos del cajero (atasco, entrega parcial, corte…)."""
         c = cajero_o_404(red, terminal)
         try:
             fp = c.dispositivos[entrada.dispositivo].fallas.programar(
@@ -296,13 +315,15 @@ def _rutas() -> APIRouter:
             raise HTTPException(422, str(e)) from e
         return {"programada": fp.como_dict(), "dispositivo": entrada.dispositivo}
 
-    @r.get("/cajeros/{terminal}/fallas", tags=["fallas"])
+    @r.get("/cajeros/{terminal}/fallas", tags=["fallas"], responses=NO_EXISTE_CAJERO)
     async def fallas_pendientes(terminal: str, red: Red = Depends(red_de)) -> dict[str, Any]:
+        """Fallas de dispositivo programadas que aún no se disparan, por dispositivo."""
         c = cajero_o_404(red, terminal)
         return {n: d.fallas.pendientes() for n, d in c.dispositivos.items()}
 
-    @r.delete("/cajeros/{terminal}/fallas", tags=["fallas"])
+    @r.delete("/cajeros/{terminal}/fallas", tags=["fallas"], responses=NO_EXISTE_CAJERO)
     async def limpiar_fallas(terminal: str, red: Red = Depends(red_de)) -> dict[str, str]:
+        """Quita todas las fallas de dispositivo programadas en el cajero."""
         c = cajero_o_404(red, terminal)
         for d in c.dispositivos.values():
             d.fallas.limpiar()
@@ -316,16 +337,19 @@ def _rutas() -> APIRouter:
 
     @r.get("/enlace/fallas", tags=["fallas"])
     async def fallas_enlace(red: Red = Depends(red_de)) -> dict[str, Any]:
+        """Fallas del enlace con el banco programadas que aún no se disparan."""
         return {"pendientes": red.transporte.pendientes()}
 
     @r.delete("/enlace/fallas", tags=["fallas"])
     async def limpiar_fallas_enlace(red: Red = Depends(red_de)) -> dict[str, str]:
+        """Quita las fallas programadas del enlace con el banco."""
         red.transporte.limpiar()
         return {"estado": "sin fallas programadas"}
 
     # -- reversas y host --------------------------------------------------------------
     @r.get("/reversas", tags=["host"])
     async def reversas_pendientes(red: Red = Depends(red_de)) -> list[dict[str, Any]]:
+        """Reversas (0420/0421) encoladas que aún no tienen acuse 0430 del banco."""
         return red.bitacora.reversas_pendientes()
 
     @r.post("/reversas/drenar", tags=["host"])
@@ -342,8 +366,9 @@ def _rutas() -> APIRouter:
         """Últimos mensajes ISO 8583 entre los cajeros y el banco (PAN enmascarado, sin campo 55)."""
         return red.traza.listar(terminal, limite=limite)
 
-    @r.post("/host/eco/{terminal}", tags=["host"])
+    @r.post("/host/eco/{terminal}", tags=["host"], responses=NO_EXISTE_CAJERO)
     async def eco(terminal: str, red: Red = Depends(red_de)) -> dict[str, Any]:
+        """Mensaje de administración de red 0800/0810 (eco) entre el cajero y el banco."""
         c = cajero_o_404(red, terminal)
         try:
             ok = await c.cliente.eco(c.datos, red.bitacora.siguiente_stan(terminal))
@@ -353,32 +378,38 @@ def _rutas() -> APIRouter:
 
     @r.get("/host/resumen", tags=["host"])
     async def resumen_host(red: Red = Depends(red_de)) -> dict[str, Any]:
+        """Lo que ve el banco simulado: saldos, créditos, remesas vigentes, operaciones y mensajes recibidos."""
         return red.host.resumen()
 
     # -- libro mayor ------------------------------------------------------------------------
     @r.get("/libro-mayor/saldos", tags=["libro mayor"])
     async def saldos(prefijo: str = "", red: Red = Depends(red_de)) -> dict[str, int]:
+        """Saldos del libro mayor por cuenta (centavos), opcionalmente filtrados por prefijo de cuenta."""
         return red.libro.saldos(prefijo)
 
     @r.get("/libro-mayor/asientos", tags=["libro mayor"])
     async def asientos(
         referencia: str | None = None, limite: int = Query(50, ge=1, le=1000), red: Red = Depends(red_de)
     ) -> list[dict[str, Any]]:
+        """Asientos del libro mayor con sus movimientos, opcionalmente de una sola operación (``referencia``)."""
         return red.libro.asientos(referencia, limite)
 
     @r.get("/libro-mayor/verificacion", tags=["libro mayor"])
     async def verificacion(red: Red = Depends(red_de)) -> dict[str, Any]:
+        """Verificación de partida doble sobre todo el libro mayor: suma cero y ningún asiento descuadrado."""
         return red.libro.verificar()
 
     # -- flota ------------------------------------------------------------------------------
     @r.post("/flota/simulacion", tags=["flota"])
     async def simular_flota(entrada: SimulacionEntrada, ent: Entorno = Depends(entorno_de)) -> dict[str, Any]:
+        """Corre el simulador agregado de flota (1 a 15 000 cajeros) y guarda sus métricas para la sesión."""
         res = await simular(ParametrosFlota(**entrada.model_dump()))
         ent.flota = res
         return res
 
-    @r.get("/flota/metricas", tags=["flota"])
+    @r.get("/flota/metricas", tags=["flota"], responses=SIN_SIMULACION)
     async def metricas_flota(ent: Entorno = Depends(entorno_de)) -> dict[str, Any]:
+        """Métricas de la última simulación de flota de la sesión."""
         if ent.flota is None:
             raise HTTPException(404, "todavía no se ha corrido una simulación (POST /flota/simulacion)")
         return ent.flota
