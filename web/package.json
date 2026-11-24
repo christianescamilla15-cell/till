@@ -12,7 +12,8 @@
     "prebuild": "node scripts/preparar_motor.mjs",
     "build": "vite build",
     "preview": "vite preview",
-    "recorrido": "node scripts/recorrido.mjs"
+    "recorrido": "node scripts/recorrido.mjs",
+    "humo:motor": "node scripts/humo_motor.mjs dist"
   },
   "dependencies": {
     "react": "18.3.1",
