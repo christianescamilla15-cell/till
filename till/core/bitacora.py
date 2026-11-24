@@ -50,6 +50,7 @@ ESQUEMA = """
 CREATE TABLE IF NOT EXISTS transacciones (
     id            TEXT PRIMARY KEY,
     llave_idem    TEXT NOT NULL UNIQUE,
+    huella        TEXT,  -- sha256 de la solicitud: la misma llave con otra solicitud es un error
     terminal      TEXT NOT NULL,
     tipo          TEXT NOT NULL,
     estado        TEXT NOT NULL,
@@ -136,16 +137,22 @@ class Bitacora:
     def __init__(self, db: BaseDatos):
         self.db = db
         db.crear_esquema(ESQUEMA)
+        columnas = {f["name"] for f in db.consultar("PRAGMA table_info(transacciones)")}
+        if "huella" not in columnas:  # base creada antes de la huella de la solicitud
+            db.ejecutar("ALTER TABLE transacciones ADD COLUMN huella TEXT")
 
     # -- transacciones ---------------------------------------------------------
-    def crear(self, terminal: str, tipo: str, llave_idem: str, destino: str | None = None, monto: int = 0) -> dict[str, Any]:
+    def crear(
+        self, terminal: str, tipo: str, llave_idem: str, destino: str | None = None, monto: int = 0,
+        huella: str | None = None,
+    ) -> dict[str, Any]:
         tx_id = uuid.uuid4().hex
         ahora = _ahora()
         with self.db.transaccion() as c:
             c.execute(
-                "INSERT INTO transacciones (id, llave_idem, terminal, tipo, estado, monto, destino, creado, actualizado) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                (tx_id, llave_idem, terminal, tipo, Estado.INICIADA.value, monto, destino, ahora, ahora),
+                "INSERT INTO transacciones (id, llave_idem, huella, terminal, tipo, estado, monto, destino, creado, actualizado) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (tx_id, llave_idem, huella, terminal, tipo, Estado.INICIADA.value, monto, destino, ahora, ahora),
             )
             c.execute(
                 "INSERT INTO historial (tx_id, de, a, detalle, momento) VALUES (?, NULL, ?, ?, ?)",

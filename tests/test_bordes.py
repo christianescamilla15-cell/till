@@ -73,3 +73,83 @@ def test_sin_validacion_el_deposito_gigante_dejaba_el_escrow_ocupado(red, correr
     with pytest.raises(ValueError, match="campo 4"):
         iso.monto(dinero.valor({1000: 10_000_000}))
     correr(invariantes(red))
+
+
+# -- operación duplicada: misma llave, misma solicitud → la original; otra solicitud → error ---------------
+def _retiro(llave="op-1", pesos=1_700, **kw):
+    return Solicitud("retiro", llave, monto=dinero.pesos(pesos), **kw)
+
+
+REUTILIZACIONES = [
+    ("otro_monto", lambda: _retiro(pesos=2_000), PAN, T),
+    ("otro_tipo", lambda: Solicitud("deposito", "op-1", billetes={500: 2}), PAN, T),
+    ("otra_tarjeta", lambda: _retiro(), "4012888888881881", T),
+    ("otro_cajero", lambda: _retiro(), PAN, "TILL0002"),
+]
+
+
+@pytest.mark.parametrize("segunda,pan,terminal", [r[1:] for r in REUTILIZACIONES], ids=[r[0] for r in REUTILIZACIONES])
+def test_llave_reutilizada_con_otra_solicitud_se_rechaza(tmp_path, correr, segunda, pan, terminal):
+    from till.core import LlaveReutilizada
+
+    red = construir_red(tmp_path / "till.sqlite3", cajeros=2)
+    saldo0 = red.host.saldo(CUENTA)
+    primera = correr(red.cajero(T).operar(_retiro(), pan=PAN))
+    with pytest.raises(LlaveReutilizada):
+        correr(red.cajero(terminal).operar(segunda(), pan=pan))
+    assert [t["id"] for t in red.bitacora.listar()] == [primera.tx_id]
+    assert red.host.saldo(CUENTA) == saldo0 - dinero.pesos(1_700)  # un solo cargo
+    red.cerrar()
+
+
+def test_ingreso_repetido_con_los_mismos_billetes_es_la_misma_operacion(red, correr):
+    s = Solicitud("deposito", "dep-1", billetes={500: 2, 100: 3})
+    r1 = correr(red.cajero(T).operar(s, pan=PAN))
+    r2 = correr(red.cajero(T).operar(Solicitud("deposito", "dep-1", billetes={100: 3, 500: 2, 200: 0}), pan=PAN))
+    assert r2.repetida and r2.tx_id == r1.tx_id  # mismo contenido aunque cambie el orden o haya ceros
+
+
+@pytest.mark.parametrize("veces", [2, 5, 20])
+def test_solicitudes_simultaneas_con_la_misma_llave_cobran_una_vez(red, correr, veces):
+    import asyncio
+
+    saldo0 = red.host.saldo(CUENTA)
+
+    async def todas():
+        return await asyncio.gather(*(red.cajero(T).operar(_retiro(), pan=PAN) for _ in range(veces)))
+
+    resultados = correr(todas())
+    assert len({r.tx_id for r in resultados}) == 1
+    assert sum(not r.repetida for r in resultados) == 1
+    assert red.host.saldo(CUENTA) == saldo0 - dinero.pesos(1_700)
+    assert len(red.host.operaciones) == 1  # una sola 0200 llegó al banco
+    correr(invariantes(red))
+
+
+def test_llave_reutilizada_por_api_da_422(web):
+    s = {"X-Till-Sesion": "sesion-llave", "Idempotency-Key": "k"}
+    ok = web.post(f"/api/cajeros/{T}/operaciones", headers=s, json={"tipo": "retiro", "pan": PAN, "monto_pesos": 500})
+    otra = web.post(f"/api/cajeros/{T}/operaciones", headers=s, json={"tipo": "retiro", "pan": PAN, "monto_pesos": 900})
+    assert ok.status_code == 200 and otra.status_code == 422 and "ya se usó" in otra.json()["detail"]
+    misma = web.post(f"/api/cajeros/{T}/operaciones", headers=s, json={"tipo": "retiro", "pan": PAN, "monto_pesos": 500})
+    assert misma.status_code == 200 and misma.json()["repetida"] and misma.json()["tx_id"] == ok.json()["tx_id"]
+
+
+def test_operacion_que_espera_mientras_otra_apaga_el_cajero_no_empieza(red, correr):
+    """Dos operaciones simultáneas; la primera sufre un corte. La segunda esperaba el candado: no debe
+    aceptar la tarjeta ni crear una operación en un cajero apagado."""
+    import asyncio
+
+    from till.core import CajeroFueraDeServicio
+    from till.devices import CorteDeEnergia, Falla
+
+    red.hardware[T].reciclador.fallas.programar(Falla.CORTE_ENERGIA, "CashDispenser.Dispense")
+
+    async def ambas():
+        return await asyncio.gather(red.cajero(T).operar(_retiro("a"), pan=PAN),
+                                    red.cajero(T).operar(_retiro("b"), pan=PAN), return_exceptions=True)
+
+    primera, segunda = correr(ambas())
+    assert isinstance(primera, CorteDeEnergia)
+    assert isinstance(segunda, CajeroFueraDeServicio)
+    assert [t["llave_idem"] for t in red.bitacora.listar(T)] == ["a"]

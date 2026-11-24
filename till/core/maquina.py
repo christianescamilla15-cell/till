@@ -21,6 +21,8 @@ la misma reversa.
 from __future__ import annotations
 
 import asyncio
+import hashlib
+import json
 import logging
 from collections.abc import Callable
 from dataclasses import asdict, dataclass, field
@@ -53,6 +55,12 @@ TIPOS = ("retiro", "deposito", "pago_credito", "remesa")
 
 class SolicitudInvalida(ValueError):
     pass
+
+
+class LlaveReutilizada(SolicitudInvalida):
+    """La llave de idempotencia ya se usó con OTRA solicitud (otro tipo, monto, billetes, destino, cajero o
+    tarjeta). Repetir la misma solicitud devuelve la operación original; cambiarla con la misma llave es un
+    error del cliente, como en el libro mayor (``ConflictoIdempotencia``)."""
 
 
 class CajeroFueraDeServicio(RuntimeError):
@@ -167,13 +175,19 @@ class Cajero:
         s.validar()
         if self.caido:
             raise CajeroFueraDeServicio(f"{self.terminal}: fuera de servicio, requiere reinicio")
+        huella = self._huella(s, pan)
         async with self._candado:
+            # Otra operación pudo apagar el cajero mientras ésta esperaba el candado: no se acepta la tarjeta.
+            if self.caido:
+                raise CajeroFueraDeServicio(f"{self.terminal}: fuera de servicio, requiere reinicio")
             previa = self.bitacora.por_llave(s.llave_idem)
             if previa is not None:
+                if previa["huella"] is not None and previa["huella"] != huella:
+                    raise LlaveReutilizada(f"la llave de idempotencia {s.llave_idem!r} ya se usó con otra solicitud")
                 return self._resultado(previa["id"], repetida=True)
             if pan is not None:
                 self.lector.insertar(pan)
-            tx = self.bitacora.crear(self.terminal, s.tipo, s.llave_idem, s.destino, s.monto)
+            tx = self.bitacora.crear(self.terminal, s.tipo, s.llave_idem, s.destino, s.monto, huella)
             tx_id = tx["id"]
             try:
                 await self._evidencia(tx_id)
@@ -197,6 +211,13 @@ class Cajero:
                         dev._apagar()
                 raise
             return self._resultado(tx_id)
+
+    def _huella(self, s: Solicitud, pan: str | None) -> str:
+        """Huella de la solicitud (sin el PAN: la tarjeta entra por su token con llave)."""
+        token = self.lector.tokenizador.token(pan) if pan is not None else None
+        billetes = sorted(dinero.limpiar(s.billetes).items())
+        cuerpo = json.dumps([self.terminal, s.tipo, s.monto, billetes, s.destino, token], separators=(",", ":"))
+        return hashlib.sha256(cuerpo.encode()).hexdigest()
 
     # -- pasos comunes -----------------------------------------------------------
     async def _evidencia(self, tx_id: str) -> None:
