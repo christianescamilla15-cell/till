@@ -11,13 +11,19 @@ banco:
   de nuevo sin volver a abonar.
 
 Las tarjetas se registran por token: el host tampoco guarda el PAN en claro.
+
+El límite de retiro es por DÍA DE NEGOCIO del banco, en hora de la Ciudad de México (sin horario de verano
+desde 2022): el acumulado se reinicia a medianoche local, no a medianoche UTC. Una reversa que llega otro
+día no libera el límite del día nuevo.
 """
 
 from __future__ import annotations
 
 import asyncio
 import itertools
+from collections.abc import Callable
 from dataclasses import dataclass, field
+from datetime import date, datetime, timezone
 from typing import Any
 
 from till import seguridad
@@ -33,6 +39,7 @@ class CuentaHost:
     saldo: int
     limite_retiro_diario: int
     retirado_hoy: int = 0
+    dia: date | None = None  # día de negocio al que corresponde ``retirado_hoy``
 
 
 @dataclass
@@ -49,6 +56,7 @@ class OperacionHost:
     reversa_aplicada: bool = False
     avisos_reversa: int = 0
     campos_respuesta: dict[str, str] = field(default_factory=dict)
+    dia: date | None = None  # día de negocio en que se aplicó (sólo retiros aprobados)
 
 
 @dataclass
@@ -65,10 +73,12 @@ class HostAutorizador:
         tokenizador: seguridad.Tokenizador | None = None,
         validar_criptograma: bool = True,
         latencia: float = 0.0,
+        reloj: Callable[[], datetime] = lambda: datetime.now(timezone.utc),
     ):
         self.tokenizador = tokenizador or seguridad.Tokenizador()
         self.validar_criptograma = validar_criptograma
         self.latencia = latencia
+        self.reloj = reloj
         self.cuentas: dict[str, CuentaHost] = {}
         self.tarjetas: dict[str, str] = {}  # token -> cuenta
         self.creditos: dict[str, int] = {}  # crédito -> adeudo en centavos
@@ -94,6 +104,9 @@ class HostAutorizador:
 
     def saldo(self, cuenta: str) -> int:
         return self.cuentas[cuenta].saldo
+
+    def dia_de_negocio(self) -> date:
+        return self.reloj().astimezone(iso.ZONA_LOCAL).date()
 
     # -- entrada de mensajes ----------------------------------------------------
     async def procesar(self, raw: bytes) -> bytes:
@@ -127,6 +140,7 @@ class HostAutorizador:
         destino = m.get("103")
         codigo = Respuesta.APROBADA
         saldo_final: int | None = None
+        dia: date | None = None
 
         if llave in self.reversas_sin_original:
             codigo = Respuesta.TRANSACCION_INVALIDA  # ya llegó su reversa: no se aplica
@@ -139,6 +153,9 @@ class HostAutorizador:
         else:
             c = self.cuentas[cuenta]
             if tipo == "retiro":
+                hoy = self.dia_de_negocio()
+                if c.dia != hoy:  # primer retiro del día de negocio: el acumulado empieza en cero
+                    c.dia, c.retirado_hoy = hoy, 0
                 if c.saldo < monto:
                     codigo = Respuesta.FONDOS_INSUFICIENTES
                 elif c.retirado_hoy + monto > c.limite_retiro_diario:
@@ -147,6 +164,7 @@ class HostAutorizador:
                     c.saldo -= monto
                     c.retirado_hoy += monto
                     saldo_final = c.saldo
+                    dia = hoy
             elif tipo == "deposito":
                 c.saldo += monto
                 saldo_final = c.saldo
@@ -173,7 +191,7 @@ class HostAutorizador:
         if saldo_final is not None:
             resp["54"] = iso.campo_54(saldo_final)
         self.operaciones[llave] = OperacionHost(
-            llave, tipo or "?", monto, cuenta, destino, codigo, autorizacion, m["41"], campos_respuesta=resp
+            llave, tipo or "?", monto, cuenta, destino, codigo, autorizacion, m["41"], campos_respuesta=resp, dia=dia
         )
         return dict(resp)
 
@@ -213,7 +231,8 @@ class HostAutorizador:
         c = self.cuentas.get(op.cuenta or "")
         if op.tipo == "retiro" and c:
             c.saldo += monto
-            c.retirado_hoy -= monto
+            if op.dia == c.dia:  # la reversa de un retiro de otro día no libera el límite de hoy
+                c.retirado_hoy -= monto
         elif op.tipo == "deposito" and c:
             c.saldo -= monto
         elif op.tipo == "pago_credito" and op.destino in self.creditos:
