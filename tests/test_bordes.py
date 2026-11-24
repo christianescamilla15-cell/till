@@ -275,3 +275,287 @@ def test_el_cajero_rechaza_con_61_sin_mover_efectivo(red, correr):
     assert r.estado == Estado.RECHAZADA and r.respuesta == "61" and r.entregado == 0
     assert red.hardware[T].reciclador.valor_total() == efectivo
     correr(invariantes(red))
+
+
+# -- montos: enteros de centavos, comparados contra Decimal como oráculo independiente --------------------
+@pytest.mark.parametrize("centavos", [0, 1, 99, 100, 101, 123_456, 100_000_000, iso.MONTO_MAXIMO, -1, -500, -123_456])
+def test_formatear_coincide_con_decimal(centavos):
+    from decimal import Decimal
+
+    pesos = Decimal(centavos).scaleb(-2)
+    esperado = f"{'-' if centavos < 0 else ''}${abs(pesos):,.2f}"
+    assert dinero.formatear(centavos) == esperado
+
+
+@pytest.mark.parametrize("mezcla", [{}, {20: 1}, {50: 3, 20: 2}, {1000: 40}, {20: 2500, 50: 2500, 1000: 2500}, {500: 1, 200: 1, 100: 1}])
+def test_valor_de_una_mezcla_coincide_con_decimal(mezcla):
+    from decimal import Decimal
+
+    esperado = sum((Decimal(d) * n for d, n in mezcla.items()), Decimal(0)) * 100
+    assert dinero.valor(mezcla) == int(esperado) and isinstance(dinero.valor(mezcla), int)
+
+
+@pytest.mark.parametrize("centavos,texto", [(0, "000000000000"), (1, "000000000001"), (250_000, "000000250000"),
+                                            (iso.MONTO_MAXIMO, "999999999999")])
+def test_campo_4_en_sus_bordes(centavos, texto):
+    assert iso.monto(centavos) == texto
+
+
+@pytest.mark.parametrize("centavos", [-1, iso.MONTO_MAXIMO + 1])
+def test_campo_4_fuera_de_rango(centavos):
+    with pytest.raises(ValueError):
+        iso.monto(centavos)
+
+
+@pytest.mark.parametrize("saldo", [0, 1, 4_850_000, -1, -250_000, iso.MONTO_MAXIMO])
+def test_campo_54_de_saldo_ida_y_vuelta_con_signo(saldo):
+    assert iso.leer_campo_54(iso.campo_54(saldo)) == saldo
+
+
+@pytest.mark.parametrize("reemplazo", [0, 1, 100_000, iso.MONTO_MAXIMO])
+def test_campo_95_de_reemplazo_ida_y_vuelta(reemplazo):
+    valor = iso.campo_95(reemplazo)
+    assert len(valor) == 42 and iso.leer_campo_95(valor) == reemplazo
+
+
+@pytest.mark.parametrize("monto", [1.5, 100.0, True], ids=["float", "float_entero", "bool"])
+def test_el_libro_mayor_solo_acepta_centavos_enteros(tmp_path, monto):
+    from till.ledger import AsientoDescuadrado, LibroMayor
+
+    libro = LibroMayor(BaseDatos_(tmp_path))
+    with pytest.raises(AsientoDescuadrado):
+        libro.registrar("x", "prueba", [("a", monto), ("b", -1)])
+
+
+def test_el_libro_mayor_rechaza_decimal(tmp_path):
+    from decimal import Decimal
+
+    from till.ledger import AsientoDescuadrado, LibroMayor
+
+    libro = LibroMayor(BaseDatos_(tmp_path))
+    with pytest.raises(AsientoDescuadrado):
+        libro.registrar("x", "prueba", [("a", Decimal("1.00")), ("b", Decimal("-1.00"))])
+
+
+def BaseDatos_(tmp_path):
+    from till.db import BaseDatos
+
+    return BaseDatos(tmp_path / "libro.sqlite3", sincrono="NORMAL")
+
+
+# -- denominaciones ----------------------------------------------------------------------------------------
+@pytest.mark.parametrize("denominacion", dinero.DENOMINACIONES_MXN)
+def test_cada_denominacion_mxn_se_acepta_en_deposito(red, correr, denominacion):
+    casete = red.hardware[T].reciclador.casetes[denominacion]
+    antes = casete.cantidad
+    r = correr(red.cajero(T).operar(Solicitud("deposito", "d", billetes={denominacion: 3}), pan=PAN))
+    assert r.estado == Estado.CONFIRMADA and r.monto == dinero.pesos(denominacion * 3)
+    assert casete.cantidad == antes + 3
+    correr(invariantes(red))
+
+
+@pytest.mark.parametrize("billetes,monto", [({10: 2}, None), ({2000: 1}, None), ({5: 1, 25: 4}, None),
+                                            ({10: 2, 500: 1}, 500), ({2000: 1, 20: 3}, 60)],
+                         ids=["10", "2000", "monedas", "10_y_500", "2000_y_20"])
+def test_billetes_que_no_son_mxn_se_devuelven(red, correr, billetes, monto):
+    r = correr(red.cajero(T).operar(Solicitud("deposito", "d", billetes=billetes), pan=PAN))
+    if monto is None:
+        assert r.estado == Estado.CANCELADA and "ningún billete" in r.motivo
+        assert red.host.operaciones == {}  # nunca se pidió autorización
+    else:
+        assert r.estado == Estado.CONFIRMADA and r.monto == dinero.pesos(monto)  # sólo cuenta lo válido
+    correr(invariantes(red))
+
+
+RETIROS = [
+    # pesos, ¿se entrega?  (carga estándar: todas las denominaciones; máximo 40 billetes por entrega)
+    (20, True), (50, True), (60, True), (80, True), (10, False), (30, False), (110, True), (130, True),
+    (40_000, True), (39_500, True), (40_020, False), (39_990, False),  # 39×1000 + 990 pide 45 billetes
+]
+
+
+@pytest.mark.parametrize("pesos,entrega", RETIROS, ids=[str(p) for p, _ in RETIROS])
+def test_retiro_por_monto_y_denominaciones(tmp_path, correr, pesos, entrega):
+    red = construir_red(tmp_path / "till.sqlite3", cajeros=1)
+    pan = "4012888888881881"  # CTA-0003: saldo y límite holgados
+    efectivo = red.hardware[T].reciclador.valor_total()
+    r = correr(red.cajero(T).operar(Solicitud("retiro", "r", monto=dinero.pesos(pesos)), pan=pan))
+    if entrega:
+        assert r.estado == Estado.CONFIRMADA and r.entregado == dinero.pesos(pesos)
+        mezcla = red.bitacora.obtener(r.tx_id)["mezcla"]
+        assert dinero.valor(mezcla) == dinero.pesos(pesos) and dinero.billetes(mezcla) <= dinero.MAX_BILLETES_POR_ENTREGA
+    else:
+        assert r.estado == Estado.CANCELADA and r.motivo == "monto no disponible en este cajero"
+        assert red.host.operaciones == {}  # no se pide autorización por lo que no se puede entregar
+        assert red.hardware[T].reciclador.valor_total() == efectivo
+    correr(invariantes(red))
+    red.cerrar()
+
+
+@pytest.mark.parametrize("centavos", [150, 1, 99_999, -10_000, 0])
+def test_retiro_con_centavos_o_no_positivo_es_invalido(centavos):
+    with pytest.raises(SolicitudInvalida):
+        Solicitud("retiro", "r", monto=centavos).validar()
+
+
+# -- reintentos: espera exponencial con tope, sin perder la reversa ------------------------------------------
+def test_la_espera_entre_reintentos_es_exponencial_con_tope(red, correr):
+    from datetime import datetime, timezone
+
+    from till.devices import Falla
+    from till.host import FallaEnlace
+
+    momento = datetime(2026, 11, 24, 18, 0, tzinfo=timezone.utc)
+    red.reversas.reloj = lambda: momento
+    red.reversas.espera_max = 4.0
+    red.hardware[T].reciclador.fallas.programar(Falla.ATASCO, "CashDispenser.Dispense")
+    red.transporte.programar(FallaEnlace.HOST_CAIDO, "0420")
+    red.transporte.programar(FallaEnlace.HOST_CAIDO, "0421", veces=5)
+    r = correr(red.cajero(T).operar(Solicitud("retiro", "a", monto=dinero.pesos(500)), pan=PAN))
+    esperas = []
+    for _ in range(6):
+        rev = red.bitacora.reversa_de(r.tx_id)
+        esperas.append(rev["proximo_intento"] - momento.timestamp())
+        correr(red.reversas.drenar())
+    assert esperas == [0.5, 1.0, 2.0, 4.0, 4.0, 4.0]  # base 0.5 s, se duplica, tope 4 s
+    rev = red.bitacora.reversa_de(r.tx_id)
+    assert rev["estado"] == "ACUSADA" and rev["intentos"] == 7  # 0420 + cinco 0421 perdidas + la que llegó
+    assert red.bitacora.obtener(r.tx_id)["estado"] == Estado.REVERTIDA
+    correr(invariantes(red))
+
+
+def test_respetar_la_espera_no_reintenta_antes_de_tiempo(red, correr):
+    from datetime import datetime, timedelta, timezone
+
+    from till.devices import Falla
+    from till.host import FallaEnlace
+
+    ahora = [datetime(2026, 11, 24, 18, 0, tzinfo=timezone.utc)]
+    red.reversas.reloj = lambda: ahora[0]
+    red.hardware[T].reciclador.fallas.programar(Falla.ATASCO, "CashDispenser.Dispense")
+    red.transporte.programar(FallaEnlace.HOST_CAIDO, "0420")
+    r = correr(red.cajero(T).operar(Solicitud("retiro", "a", monto=dinero.pesos(500)), pan=PAN))
+    assert correr(red.reversas.drenar(respetar_espera=True))["intentadas"] == 0  # faltan 0.5 s
+    ahora[0] += timedelta(seconds=0.49)
+    assert correr(red.reversas.drenar(respetar_espera=True))["intentadas"] == 0
+    ahora[0] += timedelta(seconds=0.01)
+    assert correr(red.reversas.drenar(respetar_espera=True)) == {"intentadas": 1, "acusadas": 1, "pendientes": 0}
+    assert red.bitacora.obtener(r.tx_id)["estado"] == Estado.REVERTIDA
+
+
+def test_el_ciclo_de_reenvio_sobrevive_a_un_error_puntual(red, correr):
+    import asyncio
+
+    llamadas = []
+
+    async def drenar(**_):
+        llamadas.append(1)
+        if len(llamadas) == 1:
+            raise RuntimeError("falla puntual")
+        if len(llamadas) >= 3:
+            detener.set()
+        return {"intentadas": 0, "acusadas": 0, "pendientes": 0}
+
+    detener = asyncio.Event()
+    red.reversas.drenar = drenar
+
+    async def ciclo():
+        await asyncio.wait_for(red.reversas.correr(detener, intervalo=0.001), timeout=5)
+
+    correr(ciclo())
+    assert len(llamadas) >= 3
+
+
+# -- reverso parcial: sólo se cobra lo que salió (campo 95) ----------------------------------------------------
+PARCIALES = [
+    # pesos, fracción entregada, cargo esperado (pesos), estado
+    (1_700, 0.01, 1_000, Estado.PARCIAL),  # 1000+500+200: siempre sale al menos un billete...
+    (1_700, 0.5, 1_000, Estado.PARCIAL),
+    (1_700, 0.67, 1_500, Estado.PARCIAL),
+    (1_700, 0.99, 1_500, Estado.PARCIAL),  # ...y nunca todos: si no, no sería parcial
+    (1_500, 0.5, 1_000, Estado.PARCIAL),
+    (1_000, 0.5, 0, Estado.REVERTIDA),  # con un solo billete no hay parcial posible: reversa total
+]
+
+
+@pytest.mark.parametrize("pesos,fraccion,cargo,estado", PARCIALES, ids=[f"{p}-{f}" for p, f, _, _ in PARCIALES])
+def test_entrega_parcial_cobra_solo_lo_entregado(red, correr, pesos, fraccion, cargo, estado):
+    from till.devices import Falla
+
+    saldo0 = red.host.saldo(CUENTA)
+    efectivo0 = red.hardware[T].reciclador.valor_total()
+    red.hardware[T].reciclador.fallas.programar(Falla.ENTREGA_PARCIAL, "CashDispenser.Dispense", fraccion=fraccion)
+    r = correr(red.cajero(T).operar(Solicitud("retiro", "p", monto=dinero.pesos(pesos)), pan=PAN))
+    assert r.estado == estado and r.entregado == dinero.pesos(cargo)
+    assert red.host.saldo(CUENTA) == saldo0 - dinero.pesos(cargo)
+    assert efectivo0 - red.hardware[T].reciclador.valor_total() == dinero.pesos(cargo)
+    rev = red.bitacora.reversa_de(r.tx_id)
+    assert rev["reemplazo"] == dinero.pesos(cargo) and rev["estado"] == "ACUSADA"
+    mensajes = red.traza.listar(T, rrn=red.bitacora.obtener(r.tx_id)["rrn"])
+    assert ("95" in mensajes[-1]["solicitud"]) == (cargo > 0)  # el reemplazo viaja sólo si hubo entrega
+    correr(invariantes(red))
+
+
+# -- tiempo agotado real: el banco tarda más que la espera del cajero ----------------------------------------
+@pytest.mark.parametrize("latencia,espera,estado", [(0.0, 0.2, Estado.CONFIRMADA), (0.02, 0.5, Estado.CONFIRMADA),
+                                                    (0.3, 0.05, Estado.REVERTIDA)],
+                         ids=["sin_latencia", "latencia_menor_que_la_espera", "latencia_mayor_que_la_espera"])
+def test_tiempo_agotado_real_con_el_banco(tmp_path, correr, latencia, espera, estado):
+    red = construir_red(tmp_path / "till.sqlite3", cajeros=1, timeout_host=espera)
+    red.host.latencia = latencia
+    saldo0 = red.host.saldo(CUENTA)
+    r = correr(red.cajero(T).operar(Solicitud("retiro", "t", monto=dinero.pesos(500)), pan=PAN))
+    if estado is Estado.REVERTIDA:
+        assert r.estado == Estado.EN_REVERSA and r.reversa_pendiente  # la 0420 también se quedó sin respuesta
+        red.host.latencia = 0.0  # el banco se recupera
+        correr(red.reversas.drenar())
+        r = red.cajero(T).resultado(r.tx_id)
+        assert red.host.operaciones == {}  # la 0200 vencida nunca se aplicó...
+        assert red.host.reversas_sin_original  # ...y su reversa la bloquea si llegara tarde
+    assert r.estado == estado
+    assert red.host.saldo(CUENTA) == saldo0 - (dinero.pesos(500) if estado is Estado.CONFIRMADA else 0)
+    correr(invariantes(red))
+    red.cerrar()
+
+
+def test_deposito_con_tiempo_agotado_devuelve_el_efectivo(tmp_path, correr):
+    red = construir_red(tmp_path / "till.sqlite3", cajeros=1, timeout_host=0.05)
+    red.host.latencia = 0.3
+    efectivo0 = red.hardware[T].reciclador.valor_total()
+    r = correr(red.cajero(T).operar(Solicitud("deposito", "d", billetes={500: 2}), pan=PAN))
+    assert r.estado == Estado.EN_REVERSA and r.aclaracion == 0
+    assert red.hardware[T].reciclador.valor_total() == efectivo0 and red.hardware[T].reciclador.escrow == {}
+    red.host.latencia = 0.0
+    correr(red.reversas.drenar())
+    assert red.cajero(T).resultado(r.tx_id).estado == Estado.REVERTIDA
+    correr(invariantes(red))
+    red.cerrar()
+
+
+# -- entradas de la API fuera de rango ------------------------------------------------------------------------
+ENTRADAS_INVALIDAS = [
+    ("monto_cero", "post", f"/cajeros/{T}/operaciones", {"tipo": "retiro", "pan": PAN, "monto_pesos": 0}),
+    ("monto_negativo", "post", f"/cajeros/{T}/operaciones", {"tipo": "retiro", "pan": PAN, "monto_pesos": -5}),
+    ("monto_fraccionario", "post", f"/cajeros/{T}/operaciones", {"tipo": "retiro", "pan": PAN, "monto_pesos": 100.5}),
+    ("retiro_sin_monto", "post", f"/cajeros/{T}/operaciones", {"tipo": "retiro", "pan": PAN}),
+    ("tipo_desconocido", "post", f"/cajeros/{T}/operaciones", {"tipo": "transferencia", "pan": PAN, "monto_pesos": 100}),
+    ("deposito_sin_billetes", "post", f"/cajeros/{T}/operaciones", {"tipo": "deposito", "pan": PAN}),
+    ("billetes_negativos", "post", f"/cajeros/{T}/operaciones", {"tipo": "deposito", "pan": PAN, "billetes": {"500": -1}}),
+    ("pago_sin_credito", "post", f"/cajeros/{T}/operaciones", {"tipo": "pago_credito", "pan": PAN, "billetes": {"500": 1}}),
+    ("falla_cero_veces", "post", f"/cajeros/{T}/fallas", {"dispositivo": "efectivo", "falla": "atasco", "comando": "CashDispenser.Dispense", "veces": 0}),
+    ("falla_101_veces", "post", f"/cajeros/{T}/fallas", {"dispositivo": "efectivo", "falla": "atasco", "comando": "CashDispenser.Dispense", "veces": 101}),
+    ("falla_desconocida", "post", f"/cajeros/{T}/fallas", {"dispositivo": "efectivo", "falla": "inundacion", "comando": "CashDispenser.Dispense"}),
+    ("enlace_mti_invalido", "post", "/enlace/fallas", {"falla": "host_caido", "mti": "42"}),
+    ("flota_sin_cajeros", "post", "/flota/simulacion", {"cajeros": 0}),
+    ("flota_15001", "post", "/flota/simulacion", {"cajeros": 15_001}),
+    ("limite_cero", "get", f"/cajeros/{T}/operaciones?limite=0", None),
+    ("limite_501", "get", f"/cajeros/{T}/operaciones?limite=501", None),
+]
+
+
+@pytest.mark.parametrize("metodo,ruta,cuerpo", [e[1:] for e in ENTRADAS_INVALIDAS], ids=[e[0] for e in ENTRADAS_INVALIDAS])
+def test_la_api_rechaza_entradas_fuera_de_rango_con_422_sin_operar(web, metodo, ruta, cuerpo):
+    s = {"X-Till-Sesion": "sesion-entradas", "Idempotency-Key": "e"}
+    r = getattr(web, metodo)("/api" + ruta, headers=s, **({"json": cuerpo} if cuerpo is not None else {}))
+    assert r.status_code == 422, r.text
+    assert web.get(f"/api/cajeros/{T}/tablero", headers=s).json()["ultima_operacion"] is None
