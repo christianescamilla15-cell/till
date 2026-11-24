@@ -1,0 +1,2034 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Till",
+    "description": "Red de cajeros de sucursal automatizados: implementación de referencia (Etapa 1, todo simulado).",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/salud": {
+      "get": {
+        "tags": [
+          "general"
+        ],
+        "summary": "Salud",
+        "description": "Estado de la red: versión, instancia, cajeros fuera de servicio, libro balanceado y reversas pendientes.",
+        "operationId": "salud_salud_get",
+        "parameters": [
+          {
+            "name": "x-till-sesion",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Till-Sesion"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Salud Salud Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/catalogo": {
+      "get": {
+        "tags": [
+          "general"
+        ],
+        "summary": "Catalogo",
+        "description": "Lo que una UI necesita para armar formularios: tarjetas de prueba, comandos y fallas.",
+        "operationId": "catalogo_catalogo_get",
+        "parameters": [
+          {
+            "name": "x-till-sesion",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Till-Sesion"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Catalogo Catalogo Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/cajeros": {
+      "get": {
+        "tags": [
+          "cajeros"
+        ],
+        "summary": "Listar Cajeros",
+        "description": "Cada cajero de la red con su efectivo por casete y el conteo de operaciones por estado.",
+        "operationId": "listar_cajeros_cajeros_get",
+        "parameters": [
+          {
+            "name": "x-till-sesion",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Till-Sesion"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": true
+                  },
+                  "title": "Response Listar Cajeros Cajeros Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/cajeros/{terminal}": {
+      "get": {
+        "tags": [
+          "cajeros"
+        ],
+        "summary": "Detalle Cajero",
+        "description": "Estado de los dispositivos del cajero, sus eventos recientes y sus últimas operaciones.",
+        "operationId": "detalle_cajero_cajeros__terminal__get",
+        "parameters": [
+          {
+            "name": "terminal",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Terminal"
+            }
+          },
+          {
+            "name": "x-till-sesion",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Till-Sesion"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Detalle Cajero Cajeros  Terminal  Get"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No existe el cajero indicado"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/cajeros/{terminal}/tablero": {
+      "get": {
+        "tags": [
+          "cajeros"
+        ],
+        "summary": "Tablero",
+        "description": "Todo lo que la demo pinta en una sola llamada: efectivo, libro, banco, fallas y reversas.",
+        "operationId": "tablero_cajeros__terminal__tablero_get",
+        "parameters": [
+          {
+            "name": "terminal",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Terminal"
+            }
+          },
+          {
+            "name": "asientos",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 8,
+              "title": "Asientos"
+            }
+          },
+          {
+            "name": "x-till-sesion",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Till-Sesion"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Tablero Cajeros  Terminal  Tablero Get"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No existe el cajero indicado"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/cajeros/{terminal}/operaciones": {
+      "post": {
+        "tags": [
+          "cajeros"
+        ],
+        "summary": "Operar",
+        "description": "Ejecuta una operación completa (retiro, depósito, pago de crédito o remesa) con una tarjeta de prueba.\n\nExige llave de idempotencia (encabezado ``Idempotency-Key`` o ``llave_idem``): repetir la misma solicitud\ndevuelve la operación original (``repetida``); reutilizar la llave con otra solicitud da 422. Un corte de\nenergía simulado responde 503 con la operación y el siguiente paso (reiniciar).",
+        "operationId": "operar_cajeros__terminal__operaciones_post",
+        "parameters": [
+          {
+            "name": "terminal",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Terminal"
+            }
+          },
+          {
+            "name": "idempotency-key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          },
+          {
+            "name": "x-till-sesion",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Till-Sesion"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OperacionEntrada"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Operar Cajeros  Terminal  Operaciones Post"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No existe el cajero indicado"
+          },
+          "503": {
+            "description": "El cajero está fuera de servicio por un corte de energía simulado: hay que reiniciarlo"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "cajeros"
+        ],
+        "summary": "Listar Operaciones",
+        "description": "Las operaciones más recientes del cajero, de la más nueva a la más vieja.",
+        "operationId": "listar_operaciones_cajeros__terminal__operaciones_get",
+        "parameters": [
+          {
+            "name": "terminal",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Terminal"
+            }
+          },
+          {
+            "name": "limite",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "default": 20,
+              "title": "Limite"
+            }
+          },
+          {
+            "name": "x-till-sesion",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Till-Sesion"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": true
+                  },
+                  "title": "Response Listar Operaciones Cajeros  Terminal  Operaciones Get"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No existe el cajero indicado"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/operaciones/{tx_id}": {
+      "get": {
+        "tags": [
+          "cajeros"
+        ],
+        "summary": "Detalle Operacion",
+        "description": "La operación con su historial, su reversa, sus asientos, sus mensajes ISO 8583 y su comprobante.",
+        "operationId": "detalle_operacion_operaciones__tx_id__get",
+        "parameters": [
+          {
+            "name": "tx_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Tx Id"
+            }
+          },
+          {
+            "name": "x-till-sesion",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Till-Sesion"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Detalle Operacion Operaciones  Tx Id  Get"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No existe la operación indicada"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/cajeros/{terminal}/reiniciar": {
+      "post": {
+        "tags": [
+          "cajeros"
+        ],
+        "summary": "Reiniciar",
+        "description": "Simula reiniciar el proceso del cajero: arranque de dispositivos y recuperación.",
+        "operationId": "reiniciar_cajeros__terminal__reiniciar_post",
+        "parameters": [
+          {
+            "name": "terminal",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Terminal"
+            }
+          },
+          {
+            "name": "x-till-sesion",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Till-Sesion"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Reiniciar Cajeros  Terminal  Reiniciar Post"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No existe el cajero indicado"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/cajeros/{terminal}/cuadre": {
+      "get": {
+        "tags": [
+          "cuadre"
+        ],
+        "summary": "Cuadre",
+        "description": "Cuadre de fin de día a tres bandas: efectivo físico contra libro mayor, libro contra totales del banco y\nlo que explica una diferencia legítima. Con ``drenar`` (por omisión) antes reintenta las reversas pendientes.",
+        "operationId": "cuadre_cajeros__terminal__cuadre_get",
+        "parameters": [
+          {
+            "name": "terminal",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Terminal"
+            }
+          },
+          {
+            "name": "drenar",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": true,
+              "title": "Drenar"
+            }
+          },
+          {
+            "name": "x-till-sesion",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Till-Sesion"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Cuadre Cajeros  Terminal  Cuadre Get"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No existe el cajero indicado"
+          },
+          "503": {
+            "description": "El cajero está fuera de servicio por un corte de energía simulado: hay que reiniciarlo"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/cajeros/{terminal}/fallas": {
+      "post": {
+        "tags": [
+          "fallas"
+        ],
+        "summary": "Programar Falla",
+        "description": "Programa una falla de dispositivo para los siguientes comandos del cajero (atasco, entrega parcial, corte…).",
+        "operationId": "programar_falla_cajeros__terminal__fallas_post",
+        "parameters": [
+          {
+            "name": "terminal",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Terminal"
+            }
+          },
+          {
+            "name": "x-till-sesion",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Till-Sesion"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FallaEntrada"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Programar Falla Cajeros  Terminal  Fallas Post"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No existe el cajero indicado"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "fallas"
+        ],
+        "summary": "Fallas Pendientes",
+        "description": "Fallas de dispositivo programadas que aún no se disparan, por dispositivo.",
+        "operationId": "fallas_pendientes_cajeros__terminal__fallas_get",
+        "parameters": [
+          {
+            "name": "terminal",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Terminal"
+            }
+          },
+          {
+            "name": "x-till-sesion",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Till-Sesion"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Fallas Pendientes Cajeros  Terminal  Fallas Get"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No existe el cajero indicado"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "fallas"
+        ],
+        "summary": "Limpiar Fallas",
+        "description": "Quita todas las fallas de dispositivo programadas en el cajero.",
+        "operationId": "limpiar_fallas_cajeros__terminal__fallas_delete",
+        "parameters": [
+          {
+            "name": "terminal",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Terminal"
+            }
+          },
+          {
+            "name": "x-till-sesion",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Till-Sesion"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "title": "Response Limpiar Fallas Cajeros  Terminal  Fallas Delete"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No existe el cajero indicado"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/enlace/fallas": {
+      "post": {
+        "tags": [
+          "fallas"
+        ],
+        "summary": "Programar Falla Enlace",
+        "description": "El enlace con el banco es compartido por todos los cajeros de la red.",
+        "operationId": "programar_falla_enlace_enlace_fallas_post",
+        "parameters": [
+          {
+            "name": "x-till-sesion",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Till-Sesion"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FallaEnlaceEntrada"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Programar Falla Enlace Enlace Fallas Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "fallas"
+        ],
+        "summary": "Fallas Enlace",
+        "description": "Fallas del enlace con el banco programadas que aún no se disparan.",
+        "operationId": "fallas_enlace_enlace_fallas_get",
+        "parameters": [
+          {
+            "name": "x-till-sesion",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Till-Sesion"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Fallas Enlace Enlace Fallas Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "fallas"
+        ],
+        "summary": "Limpiar Fallas Enlace",
+        "description": "Quita las fallas programadas del enlace con el banco.",
+        "operationId": "limpiar_fallas_enlace_enlace_fallas_delete",
+        "parameters": [
+          {
+            "name": "x-till-sesion",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Till-Sesion"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "title": "Response Limpiar Fallas Enlace Enlace Fallas Delete"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/reversas": {
+      "get": {
+        "tags": [
+          "host"
+        ],
+        "summary": "Reversas Pendientes",
+        "description": "Reversas (0420/0421) encoladas que aún no tienen acuse 0430 del banco.",
+        "operationId": "reversas_pendientes_reversas_get",
+        "parameters": [
+          {
+            "name": "x-till-sesion",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Till-Sesion"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": true
+                  },
+                  "title": "Response Reversas Pendientes Reversas Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/reversas/drenar": {
+      "post": {
+        "tags": [
+          "host"
+        ],
+        "summary": "Drenar Reversas",
+        "description": "Un intento por reversa pendiente. Con ``respetar_espera``, sólo las que ya cumplieron su\nespera exponencial: es lo que hace el ciclo de fondo y lo que la demo pide mientras haya\nreversas pendientes, por si la plataforma congela el proceso entre solicitudes.",
+        "operationId": "drenar_reversas_reversas_drenar_post",
+        "parameters": [
+          {
+            "name": "respetar_espera",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Respetar Espera"
+            }
+          },
+          {
+            "name": "x-till-sesion",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Till-Sesion"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "integer"
+                  },
+                  "title": "Response Drenar Reversas Reversas Drenar Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/iso/mensajes": {
+      "get": {
+        "tags": [
+          "host"
+        ],
+        "summary": "Mensajes Iso",
+        "description": "Últimos mensajes ISO 8583 entre los cajeros y el banco (PAN enmascarado, sin campo 55).",
+        "operationId": "mensajes_iso_iso_mensajes_get",
+        "parameters": [
+          {
+            "name": "terminal",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Terminal"
+            }
+          },
+          {
+            "name": "limite",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "default": 50,
+              "title": "Limite"
+            }
+          },
+          {
+            "name": "x-till-sesion",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Till-Sesion"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": true
+                  },
+                  "title": "Response Mensajes Iso Iso Mensajes Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/host/eco/{terminal}": {
+      "post": {
+        "tags": [
+          "host"
+        ],
+        "summary": "Eco",
+        "description": "Mensaje de administración de red 0800/0810 (eco) entre el cajero y el banco.",
+        "operationId": "eco_host_eco__terminal__post",
+        "parameters": [
+          {
+            "name": "terminal",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Terminal"
+            }
+          },
+          {
+            "name": "x-till-sesion",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Till-Sesion"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Eco Host Eco  Terminal  Post"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No existe el cajero indicado"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/host/resumen": {
+      "get": {
+        "tags": [
+          "host"
+        ],
+        "summary": "Resumen Host",
+        "description": "Lo que ve el banco simulado: saldos, créditos, remesas vigentes, operaciones y mensajes recibidos.",
+        "operationId": "resumen_host_host_resumen_get",
+        "parameters": [
+          {
+            "name": "x-till-sesion",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Till-Sesion"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Resumen Host Host Resumen Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/libro-mayor/saldos": {
+      "get": {
+        "tags": [
+          "libro mayor"
+        ],
+        "summary": "Saldos",
+        "description": "Saldos del libro mayor por cuenta (centavos), opcionalmente filtrados por prefijo de cuenta.",
+        "operationId": "saldos_libro_mayor_saldos_get",
+        "parameters": [
+          {
+            "name": "prefijo",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "Prefijo"
+            }
+          },
+          {
+            "name": "x-till-sesion",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Till-Sesion"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "integer"
+                  },
+                  "title": "Response Saldos Libro Mayor Saldos Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/libro-mayor/asientos": {
+      "get": {
+        "tags": [
+          "libro mayor"
+        ],
+        "summary": "Asientos",
+        "description": "Asientos del libro mayor con sus movimientos, opcionalmente de una sola operación (``referencia``).",
+        "operationId": "asientos_libro_mayor_asientos_get",
+        "parameters": [
+          {
+            "name": "referencia",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Referencia"
+            }
+          },
+          {
+            "name": "limite",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 1000,
+              "minimum": 1,
+              "default": 50,
+              "title": "Limite"
+            }
+          },
+          {
+            "name": "x-till-sesion",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Till-Sesion"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": true
+                  },
+                  "title": "Response Asientos Libro Mayor Asientos Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/libro-mayor/verificacion": {
+      "get": {
+        "tags": [
+          "libro mayor"
+        ],
+        "summary": "Verificacion",
+        "description": "Verificación de partida doble sobre todo el libro mayor: suma cero y ningún asiento descuadrado.",
+        "operationId": "verificacion_libro_mayor_verificacion_get",
+        "parameters": [
+          {
+            "name": "x-till-sesion",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Till-Sesion"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Verificacion Libro Mayor Verificacion Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/flota/simulacion": {
+      "post": {
+        "tags": [
+          "flota"
+        ],
+        "summary": "Simular Flota",
+        "description": "Corre el simulador agregado de flota (1 a 15 000 cajeros) y guarda sus métricas para la sesión.",
+        "operationId": "simular_flota_flota_simulacion_post",
+        "parameters": [
+          {
+            "name": "x-till-sesion",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Till-Sesion"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SimulacionEntrada"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Simular Flota Flota Simulacion Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/flota/metricas": {
+      "get": {
+        "tags": [
+          "flota"
+        ],
+        "summary": "Metricas Flota",
+        "description": "Métricas de la última simulación de flota de la sesión.",
+        "operationId": "metricas_flota_flota_metricas_get",
+        "parameters": [
+          {
+            "name": "x-till-sesion",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Till-Sesion"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Metricas Flota Flota Metricas Get"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "La sesión todavía no ha corrido una simulación de flota"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/flota/muestra": {
+      "post": {
+        "tags": [
+          "flota"
+        ],
+        "summary": "Muestra",
+        "description": "Corre la máquina de estados real en N cajeros con fallas aleatorias (base temporal aparte).",
+        "operationId": "muestra_flota_muestra_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MuestraEntrada"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Muestra Flota Muestra Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "FallaEnlace": {
+        "type": "string",
+        "enum": [
+          "solicitud_perdida",
+          "respuesta_perdida",
+          "host_caido",
+          "corte_energia_tras_envio"
+        ],
+        "title": "FallaEnlace"
+      },
+      "FallaEnlaceEntrada": {
+        "properties": {
+          "falla": {
+            "$ref": "#/components/schemas/FallaEnlace"
+          },
+          "mti": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^\\d{4}$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mti"
+          },
+          "veces": {
+            "type": "integer",
+            "maximum": 100.0,
+            "minimum": 1.0,
+            "title": "Veces",
+            "default": 1
+          }
+        },
+        "type": "object",
+        "required": [
+          "falla"
+        ],
+        "title": "FallaEnlaceEntrada"
+      },
+      "FallaEntrada": {
+        "properties": {
+          "dispositivo": {
+            "type": "string",
+            "enum": [
+              "efectivo",
+              "tarjeta",
+              "impresora",
+              "camara"
+            ],
+            "title": "Dispositivo"
+          },
+          "falla": {
+            "type": "string",
+            "title": "Falla"
+          },
+          "comando": {
+            "type": "string",
+            "title": "Comando"
+          },
+          "veces": {
+            "type": "integer",
+            "maximum": 100.0,
+            "minimum": 1.0,
+            "title": "Veces",
+            "default": 1
+          },
+          "parametros": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Parametros"
+          }
+        },
+        "type": "object",
+        "required": [
+          "dispositivo",
+          "falla",
+          "comando"
+        ],
+        "title": "FallaEntrada"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "MuestraEntrada": {
+        "properties": {
+          "cajeros": {
+            "type": "integer",
+            "maximum": 50.0,
+            "minimum": 1.0,
+            "title": "Cajeros",
+            "default": 10
+          },
+          "operaciones_por_cajero": {
+            "type": "integer",
+            "maximum": 50.0,
+            "minimum": 1.0,
+            "title": "Operaciones Por Cajero",
+            "default": 10
+          },
+          "prob_falla": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Prob Falla",
+            "default": 0.08
+          },
+          "prob_falla_enlace": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Prob Falla Enlace",
+            "default": 0.03
+          },
+          "semilla": {
+            "type": "integer",
+            "title": "Semilla",
+            "default": 7
+          }
+        },
+        "type": "object",
+        "title": "MuestraEntrada"
+      },
+      "OperacionEntrada": {
+        "properties": {
+          "tipo": {
+            "type": "string",
+            "enum": [
+              "retiro",
+              "deposito",
+              "pago_credito",
+              "remesa"
+            ],
+            "title": "Tipo"
+          },
+          "pan": {
+            "type": "string",
+            "title": "Pan",
+            "description": "PAN de prueba (simula insertar la tarjeta); nunca se guarda"
+          },
+          "monto_pesos": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Monto Pesos",
+            "description": "sólo retiro"
+          },
+          "billetes": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "integer"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Billetes",
+            "description": "sólo ingresos: denominación -> cantidad"
+          },
+          "destino": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Destino",
+            "description": "crédito (pago) o beneficiario (remesa)"
+          },
+          "llave_idem": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Llave Idem",
+            "description": "alternativa al encabezado Idempotency-Key"
+          }
+        },
+        "type": "object",
+        "required": [
+          "tipo",
+          "pan"
+        ],
+        "title": "OperacionEntrada"
+      },
+      "SimulacionEntrada": {
+        "properties": {
+          "cajeros": {
+            "type": "integer",
+            "maximum": 15000.0,
+            "minimum": 1.0,
+            "title": "Cajeros",
+            "default": 200
+          },
+          "horas": {
+            "type": "integer",
+            "maximum": 336.0,
+            "minimum": 1.0,
+            "title": "Horas",
+            "default": 24
+          },
+          "semilla": {
+            "type": "integer",
+            "title": "Semilla",
+            "default": 2026
+          },
+          "tx_por_dia": {
+            "type": "number",
+            "maximum": 2000.0,
+            "exclusiveMinimum": 0.0,
+            "title": "Tx Por Dia",
+            "default": 150.0
+          },
+          "prob_falla_dispositivo": {
+            "type": "number",
+            "maximum": 0.5,
+            "minimum": 0.0,
+            "title": "Prob Falla Dispositivo",
+            "default": 0.0012
+          },
+          "prob_falla_enlace": {
+            "type": "number",
+            "maximum": 0.5,
+            "minimum": 0.0,
+            "title": "Prob Falla Enlace",
+            "default": 0.001
+          },
+          "mttr_horas": {
+            "type": "number",
+            "maximum": 72.0,
+            "exclusiveMinimum": 0.0,
+            "title": "Mttr Horas",
+            "default": 3.0
+          }
+        },
+        "type": "object",
+        "title": "SimulacionEntrada"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    }
+  }
+}

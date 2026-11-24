@@ -50,6 +50,7 @@ ESQUEMA = """
 CREATE TABLE IF NOT EXISTS transacciones (
     id            TEXT PRIMARY KEY,
     llave_idem    TEXT NOT NULL UNIQUE,
+    huella        TEXT,  -- sha256 de la solicitud: la misma llave con otra solicitud es un error
     terminal      TEXT NOT NULL,
     tipo          TEXT NOT NULL,
     estado        TEXT NOT NULL,
@@ -119,6 +120,14 @@ class TransicionInvalida(Exception):
     pass
 
 
+# Lo único que un UPDATE puede tocar: los nombres de columna del SQL salen de esta lista fija, nunca de datos de
+# entrada; los valores siempre viajan como parámetros.
+COLUMNAS_EDITABLES = frozenset({
+    "estado", "monto", "mezcla", "token", "enmascarado", "stan", "f7", "rrn", "respuesta", "autorizacion", "saldo",
+    "entregado", "aclaracion", "motivo", "evidencia", "comprobante", "actualizado",
+})
+
+
 def _ahora() -> str:
     return datetime.now(timezone.utc).isoformat()
 
@@ -136,16 +145,22 @@ class Bitacora:
     def __init__(self, db: BaseDatos):
         self.db = db
         db.crear_esquema(ESQUEMA)
+        columnas = {f["name"] for f in db.consultar("PRAGMA table_info(transacciones)")}
+        if "huella" not in columnas:  # base creada antes de la huella de la solicitud
+            db.ejecutar("ALTER TABLE transacciones ADD COLUMN huella TEXT")
 
     # -- transacciones ---------------------------------------------------------
-    def crear(self, terminal: str, tipo: str, llave_idem: str, destino: str | None = None, monto: int = 0) -> dict[str, Any]:
+    def crear(
+        self, terminal: str, tipo: str, llave_idem: str, destino: str | None = None, monto: int = 0,
+        huella: str | None = None,
+    ) -> dict[str, Any]:
         tx_id = uuid.uuid4().hex
         ahora = _ahora()
         with self.db.transaccion() as c:
             c.execute(
-                "INSERT INTO transacciones (id, llave_idem, terminal, tipo, estado, monto, destino, creado, actualizado) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                (tx_id, llave_idem, terminal, tipo, Estado.INICIADA.value, monto, destino, ahora, ahora),
+                "INSERT INTO transacciones (id, llave_idem, huella, terminal, tipo, estado, monto, destino, creado, actualizado) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (tx_id, llave_idem, huella, terminal, tipo, Estado.INICIADA.value, monto, destino, ahora, ahora),
             )
             c.execute(
                 "INSERT INTO historial (tx_id, de, a, detalle, momento) VALUES (?, NULL, ?, ?, ?)",
@@ -162,6 +177,8 @@ class Bitacora:
     def _set(self, campos: dict[str, Any]) -> tuple[str, list[Any]]:
         cols, vals = [], []
         for k, v in campos.items():
+            if k not in COLUMNAS_EDITABLES:
+                raise ValueError(f"columna no editable en transacciones: {k!r}")
             if k == "mezcla":
                 v = json.dumps({str(d): n for d, n in v.items()})
             cols.append(f"{k} = ?")
@@ -173,6 +190,8 @@ class Bitacora:
             return
         sets, vals = self._set(campos | {"actualizado": _ahora()})
         with self.db.transaccion() as c:
+            # Columnas de COLUMNAS_EDITABLES y valores como parámetros (ver _set): no hay entrada en el SQL.
+            # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
             c.execute(f"UPDATE transacciones SET {sets} WHERE id = ?", (*vals, tx_id))
 
     def transicion(self, tx_id: str, nuevo: Estado, detalle: str | None = None, **campos: Any) -> None:
@@ -184,7 +203,8 @@ class Bitacora:
             if nuevo not in TRANSICIONES.get(actual, frozenset()):
                 raise TransicionInvalida(f"{tx_id}: {actual} -> {nuevo} no está permitida")
             sets, vals = self._set(campos | {"estado": nuevo.value, "actualizado": _ahora()})
-            c.execute(f"UPDATE transacciones SET {sets} WHERE id = ?", (*vals, tx_id))
+            # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
+            c.execute(f"UPDATE transacciones SET {sets} WHERE id = ?", (*vals, tx_id))  # columnas fijas, ver _set
             c.execute(
                 "INSERT INTO historial (tx_id, de, a, detalle, momento) VALUES (?, ?, ?, ?, ?)",
                 (tx_id, actual.value, nuevo.value, detalle, _ahora()),

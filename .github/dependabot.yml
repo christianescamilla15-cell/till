@@ -1,0 +1,37 @@
+version: 2
+updates:
+  # requirements.txt y requirements-dev.txt. Ojo: la demo publicada NO corre con estas versiones sino con las del
+  # lockfile de Pyodide (web: paquete npm «pyodide»); el job «motor» del CI prueba ésas.
+  - package-ecosystem: pip
+    directory: /
+    schedule: { interval: weekly }
+    cooldown: { default-days: 7 }   # no proponer versiones con menos de una semana publicadas
+    groups:                       # menores y parches juntos: un PR por semana; las mayores van solas
+      pip-menores:
+        update-types: [minor, patch]
+    open-pull-requests-limit: 5
+  # Front de la demo (Vite + React) y el intérprete Pyodide del motor.
+  - package-ecosystem: npm
+    directory: /web
+    schedule: { interval: weekly }
+    cooldown: { default-days: 7 }   # no proponer versiones con menos de una semana publicadas
+    groups:                       # menores y parches juntos: un PR por semana; las mayores van solas
+      npm-web-menores:
+        update-types: [minor, patch]
+    open-pull-requests-limit: 5
+  # Playwright del E2E.
+  - package-ecosystem: npm
+    directory: /e2e
+    schedule: { interval: weekly }
+    cooldown: { default-days: 7 }   # no proponer versiones con menos de una semana publicadas
+    groups:                       # menores y parches juntos: un PR por semana; las mayores van solas
+      npm-e2e-menores:
+        update-types: [minor, patch]
+    open-pull-requests-limit: 5
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: { interval: weekly }
+    cooldown: { default-days: 7 }   # no proponer versiones con menos de una semana publicadas
+    groups:                       # menores y parches juntos: un PR por semana; las mayores van solas
+      acciones-menores:
+        update-types: [minor, patch]

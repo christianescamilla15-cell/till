@@ -1,5 +1,8 @@
 # Till
 
+[![ci](https://github.com/christianescamilla15-cell/till/actions/workflows/ci.yml/badge.svg)](https://github.com/christianescamilla15-cell/till/actions/workflows/ci.yml)
+[![seguridad](https://github.com/christianescamilla15-cell/till/actions/workflows/seguridad.yml/badge.svg)](https://github.com/christianescamilla15-cell/till/actions/workflows/seguridad.yml)
+
 **Implementación de referencia, abierta, de una red de 15 mil cajeros de sucursal automatizados.**
 Del dispositivo al centro de datos: reciclador de efectivo, lector EMV, enlace ISO 8583 con el banco,
 libro mayor de partida doble, reversas que sobreviven a un apagón, cuadre de fin de día y un simulador
@@ -46,6 +49,13 @@ El despliegue por oleadas (piloto de 50 sucursales → región → nacional) y l
 está en [`docs/etapas.md`](docs/etapas.md).
 
 ## Arquitectura
+
+El paquete completo está en [`docs/arquitectura/`](docs/arquitectura/README.md): C4 (contexto, contenedores,
+componentes y despliegue), [visión](docs/arquitectura/vision.md) al estilo TOGAF con línea base, objetivo y
+hoja de ruta, [requisitos](docs/arquitectura/requisitos.md) trazados hasta las pruebas, modelo
+[ArchiMate](docs/arquitectura/archimate.md) en el formato de intercambio de The Open Group, mapeo a
+[BIAN](docs/arquitectura/bian.md), [UML](docs/arquitectura/uml.md) de estados y secuencias, y las decisiones
+con sus alternativas descartadas en [`docs/adr/`](docs/adr/). Resumen:
 
 ```mermaid
 flowchart LR
@@ -140,7 +150,7 @@ balanceado, que el cuadre a tres bandas cuadre y que no haya un PAN en claro en 
 aleatorias —incluidos cortes de energía y acuses perdidos— y comprueba las mismas invariantes más
 la conservación del efectivo y del saldo del cliente.
 
-## Cómo correrlo
+## Cómo ejecutarlo
 
 Requisitos: Python 3.12.
 
@@ -224,8 +234,8 @@ memoria. Medido en Vercel con la API como función de Python: 24 solicitudes sim
 operación. En el navegador cada pestaña tiene su red completa, el ciclo de fondo que reenvía reversas
 nunca se congela y no hay estado del lado del servidor.
 
-El costo es la primera carga: ~7 MB comprimidos (intérprete, biblioteca estándar y 12 paquetes:
-FastAPI, Starlette, Pydantic, pyiso8583…), que después quedan en caché. `web/scripts/preparar_motor.mjs`
+El costo es la primera carga: ~7 MB comprimidos (intérprete, biblioteca estándar y 13 paquetes:
+FastAPI, Starlette, Pydantic, pyiso8583, la base de zonas horarias `tzdata`…), que después quedan en caché. `web/scripts/preparar_motor.mjs`
 los prepara antes de cada build: copia el intérprete del paquete npm `pyodide`, descarga sólo los
 paquetes necesarios verificando el sha256 de su lockfile (FastAPI sin httpx ni jinja2) y empaqueta el
 código de `till/`. Con `VITE_TILL_MOTOR=servidor` la página usa en cambio uvicorn por HTTP.
@@ -284,19 +294,55 @@ define todo:
 - La CSP fija `frame-ancestors 'none'`: la demo no se deja incrustar en otras páginas (el portafolio la
   enlaza en su propia pestaña).
 
-Con la CLI: `vercel` (vista previa) y `vercel --prod`. No hacen falta variables de entorno.
+Con la CLI: `vercel` (vista previa) y `vercel --prod`. No hacen falta variables de entorno. El procedimiento
+completo —qué revisar antes, la prueba de humo posterior (`herramientas/humo.sh`) y cómo revertir— está en
+[`RUNBOOK.md`](RUNBOOK.md).
+
+## Pruebas
+
+```bash
+.venv/bin/python -m pytest                       # 696 casos (158 funciones de prueba)
+npm run build --prefix web && npm run humo:motor --prefix web   # la API real en Pyodide, desde web/dist
+TILL_PYTHON=$PWD/.venv/bin/python npm test --prefix e2e        # E2E con Playwright sobre el build local
+```
+
+La compuerta no es el porcentaje de cobertura (el CI la reporta: 95 % de `till/` y `api/`) sino [`docs/reglas.md`](docs/reglas.md):
+**95 reglas de negocio, cada una con sus pruebas**, y una prueba que falla si la tabla cita una prueba que no
+existe o que se salta. Además:
+
+- **Máquinas de estado completas**: las 144 parejas de estados de la operación (lo no permitido se rechaza sin
+  tocar nada), la recuperación desde cada estado no final, la reversa, el lector y el reciclador con sus
+  comandos fuera de estado, y las sesiones de la demo (`tests/test_maquinas_de_estado.py`).
+- **Casos límite parametrizados**: montos contra `Decimal`, denominaciones, máximo de billetes, límite diario
+  en sus bordes y por día de negocio en hora de México, reintentos con espera exponencial, solicitudes
+  duplicadas y simultáneas, reverso parcial y tiempo agotado real (`tests/test_bordes.py`).
+- **Paridad contra un oráculo**: un día de operación contra un lote golden escrito a mano, con cifras control
+  y controles negativos (`tests/test_paridad_golden.py`).
+- **Arquitectura y contrato**: capas sin dependencias hacia arriba, dominio sin API ni transporte web,
+  contrato OpenAPI versionado en [`docs/api/openapi.json`](docs/api/openapi.json) que falla si cambia sin
+  regenerarlo.
+- **El runtime publicado**: el CI corre toda la suite con el Python 3.14 y los paquetes de Pyodide, la prueba
+  de humo del motor en WebAssembly y un E2E de un retiro completo en Chromium.
+
+## Seguridad
+
+Cómo reportar una vulnerabilidad, qué escanea cada cambio (CodeQL, Semgrep, Trivy, gitleaks, SBOM) y qué
+controles del dominio la sostienen: [`SECURITY.md`](SECURITY.md).
 
 ## Resultados medidos
 
-Medidos el 17-nov-2026 en una laptop de desarrollo (12 hilos, Linux), Python 3.12.3:
+Medidos en una laptop de desarrollo (12 hilos, Linux), Python 3.12.3:
 
-- `pytest`: **92 pruebas aprobadas** en ~10.4 s (la mayor parte es `fsync` de SQLite con
-  `synchronous=FULL`): 34 de escenarios de falla, 1 de propiedades con 60 secuencias aleatorias,
-  9 de API, 7 de la API para la demo web (prefijo `/api`, sesiones, tablero, traza, validación del
-  campo 103), 4 de la entrada local y `vercel.json`, 4 de la traza ISO 8583, 9 de dispositivos, 8 de ISO 8583 y
-  host, 5 de mezcla de billetes, 4 de libro mayor, 4 de flota y 3 de cuadre.
+- `pytest` (24-nov-2026): **696 casos aprobados** de 158 funciones en ~32 s (la mayor parte es `fsync` de
+  SQLite con `synchronous=FULL`): 220 de máquinas de estado, 130 de casos límite, 131 del modelo ArchiMate,
+  68 de arquitectura, 34 de escenarios de falla, 30 del contrato OpenAPI, 14 de ISO 8583 y host, 11 de
+  dispositivos, 9 de API, 7 de la API de la demo, 7 de paridad golden, 6 de mezcla de billetes, 5 de traza,
+  4 de cuadre, 4 de libro mayor, 4 de flota, 4 de la entrada local y `vercel.json`, 4 de la tabla de reglas,
+  3 del puente del motor y 1 de propiedades con 60 secuencias aleatorias. La misma suite pasa con Python
+  3.14.10 y las versiones de FastAPI y Pydantic del lockfile de Pyodide.
 - Demo web (18-nov-2026): `npm run build` produce 221 KB de JavaScript (70 KB comprimido), 22 KB de
-  CSS y el motor (Pyodide 314.0.8 con Python 3.14.2 y 12 paquetes, ~7 MB comprimidos). El recorrido en
+  CSS y el motor (Pyodide 314.0.8 con Python 3.14.2 y 12 paquetes, ~7 MB comprimidos; desde el 24-nov son 13,
+  con `tzdata`, +0.35 MB). El recorrido en
   Chrome (27 pasos, ver arriba) terminó sin errores de consola ni violaciones de CSP; el motor quedó listo
   3.0–3.4 s después de cargar la página (en local) y la flota de 15 000 cajeros × 24 h tardó 1.39 s
   dentro del navegador (0.67–0.77 s con CPython nativo).

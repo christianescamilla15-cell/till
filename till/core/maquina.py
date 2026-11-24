@@ -21,6 +21,8 @@ la misma reversa.
 from __future__ import annotations
 
 import asyncio
+import hashlib
+import json
 import logging
 from collections.abc import Callable
 from dataclasses import asdict, dataclass, field
@@ -55,6 +57,12 @@ class SolicitudInvalida(ValueError):
     pass
 
 
+class LlaveReutilizada(SolicitudInvalida):
+    """La llave de idempotencia ya se usó con OTRA solicitud (otro tipo, monto, billetes, destino, cajero o
+    tarjeta). Repetir la misma solicitud devuelve la operación original; cambiarla con la misma llave es un
+    error del cliente, como en el libro mayor (``ConflictoIdempotencia``)."""
+
+
 class CajeroFueraDeServicio(RuntimeError):
     pass
 
@@ -74,8 +82,15 @@ class Solicitud:
             raise SolicitudInvalida("la llave de idempotencia es obligatoria (máx. 128)")
         if self.tipo == "retiro" and (self.monto <= 0 or self.monto % 100):
             raise SolicitudInvalida("el retiro necesita un monto en pesos enteros")
-        if self.tipo != "retiro" and not any(n > 0 for n in self.billetes.values()):
-            raise SolicitudInvalida("un ingreso de efectivo necesita billetes")
+        if self.tipo != "retiro":
+            if any(not _entero(d) or d <= 0 or not _entero(n) or n < 0 for d, n in self.billetes.items()):
+                raise SolicitudInvalida("los billetes son denominación positiva -> cantidad entera no negativa")
+            if not any(n > 0 for n in self.billetes.values()):
+                raise SolicitudInvalida("un ingreso de efectivo necesita billetes")
+            if dinero.valor(self.billetes) > iso.MONTO_MAXIMO:
+                # Igual que el destino: si el total no cabe en el campo 4, la 0200 fallaría con la operación ya en
+                # AUTORIZANDO y los billetes en escrow (el cajero dejaría de aceptar depósitos hasta reiniciarse).
+                raise SolicitudInvalida("el total de los billetes no cabe en el campo 4 de ISO 8583 (12 dígitos)")
         if self.tipo in ("pago_credito", "remesa") and not self.destino:
             raise SolicitudInvalida("pago de crédito y remesa necesitan destino")
         if self.destino is not None and not destino_valido(self.destino):
@@ -91,6 +106,10 @@ MAX_DESTINO = 28  # campo 103 (LLVAR, ASCII)
 
 def destino_valido(destino: str) -> bool:
     return 0 < len(destino) <= MAX_DESTINO and destino.isascii() and destino.isprintable()
+
+
+def _entero(x: Any) -> bool:
+    return isinstance(x, int) and not isinstance(x, bool)
 
 
 @dataclass
@@ -156,13 +175,19 @@ class Cajero:
         s.validar()
         if self.caido:
             raise CajeroFueraDeServicio(f"{self.terminal}: fuera de servicio, requiere reinicio")
+        huella = self._huella(s, pan)
         async with self._candado:
+            # Otra operación pudo apagar el cajero mientras ésta esperaba el candado: no se acepta la tarjeta.
+            if self.caido:
+                raise CajeroFueraDeServicio(f"{self.terminal}: fuera de servicio, requiere reinicio")
             previa = self.bitacora.por_llave(s.llave_idem)
             if previa is not None:
+                if previa["huella"] is not None and previa["huella"] != huella:
+                    raise LlaveReutilizada(f"la llave de idempotencia {s.llave_idem!r} ya se usó con otra solicitud")
                 return self._resultado(previa["id"], repetida=True)
             if pan is not None:
                 self.lector.insertar(pan)
-            tx = self.bitacora.crear(self.terminal, s.tipo, s.llave_idem, s.destino, s.monto)
+            tx = self.bitacora.crear(self.terminal, s.tipo, s.llave_idem, s.destino, s.monto, huella)
             tx_id = tx["id"]
             try:
                 await self._evidencia(tx_id)
@@ -186,6 +211,13 @@ class Cajero:
                         dev._apagar()
                 raise
             return self._resultado(tx_id)
+
+    def _huella(self, s: Solicitud, pan: str | None) -> str:
+        """Huella de la solicitud (sin el PAN: la tarjeta entra por su token con llave)."""
+        token = self.lector.tokenizador.token(pan) if pan is not None else None
+        billetes = sorted(dinero.limpiar(s.billetes).items())
+        cuerpo = json.dumps([self.terminal, s.tipo, s.monto, billetes, s.destino, token], separators=(",", ":"))
+        return hashlib.sha256(cuerpo.encode()).hexdigest()
 
     # -- pasos comunes -----------------------------------------------------------
     async def _evidencia(self, tx_id: str) -> None:

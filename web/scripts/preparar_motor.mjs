@@ -23,9 +23,12 @@ const SALIDA = join(MOTOR, `pyodide-${VERSION}`)
 const CDN = `https://cdn.jsdelivr.net/pyodide/v${VERSION}/full/`
 
 // Lo que importa la API de Till (fastapi y su cadena) y pyiso8583, que no viene en la distribución de Pyodide.
+// tzdata: el navegador no trae la base de zonas horarias del sistema; sin ella ZoneInfo('America/Mexico_City') no
+// existe en el motor y los campos 12/13 de ISO 8583 (hora y fecha locales) saldrían en UTC (lo detectó
+// scripts/humo_motor.mjs).
 const PAQUETES = [
   'fastapi', 'starlette', 'anyio', 'sniffio', 'idna', 'pydantic', 'pydantic-core', 'annotated-types',
-  'annotated-doc', 'typing-extensions', 'typing-inspection',
+  'annotated-doc', 'typing-extensions', 'typing-inspection', 'tzdata',
 ]
 const FUERA = { // paquetes puros de PyPI, fijados por versión y hash
   pyiso8583: {

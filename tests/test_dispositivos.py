@@ -134,3 +134,22 @@ def test_impresora_rechaza_pan_en_claro_y_camara_stub(correr):
     cam = Camara("C1")
     t = correr(cam.ejecutar("Camera.TakePicture", referencia="x"))
     assert t.ok and t.datos["imagen"].startswith("sim://")
+
+
+def test_el_token_es_determinista_y_depende_de_la_llave():
+    pan = "4111111111111111"
+    a, b, otra = Tokenizador(b"llave-a"), Tokenizador(b"llave-a"), Tokenizador(b"llave-b")
+    assert a.token(pan) == b.token(pan) != otra.token(pan)
+    assert a.token(pan).startswith("tok_") and pan not in a.token(pan)
+    assert a.token(pan) != a.token("4012888888881881")
+
+
+def test_cada_criptograma_sube_el_contador_atc(correr):
+    from till import seguridad
+
+    lector = LectorTarjetas("L1", Tokenizador())
+    lector.insertar("4111111111111111")
+    correr(lector.ejecutar("CardReader.ReadRawData"))
+    atcs = [seguridad.leer_tlv_icc(correr(lector.ejecutar("CardReader.GenerateAC", monto=100, stan="000001",
+                                                                terminal="TILL0001")).datos["campo55"])[1] for _ in range(3)]
+    assert atcs == [1, 2, 3]  # el mismo monto y STAN dan otro criptograma: no se puede reutilizar uno viejo

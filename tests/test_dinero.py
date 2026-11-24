@@ -32,7 +32,7 @@ def _existe_por_fuerza_bruta(monto_pesos, disp, max_b):
     denoms = [d for d in DENOMINACIONES_MXN if disp.get(d, 0) > 0]
     rangos = [range(min(disp[d], monto_pesos // d) + 1) for d in denoms]
     for combo in itertools.product(*rangos):
-        if sum(c * d for c, d in zip(combo, denoms)) == monto_pesos and sum(combo) <= max_b:
+        if sum(c * d for c, d in zip(combo, denoms, strict=True)) == monto_pesos and sum(combo) <= max_b:
             return True
     return False
 
@@ -51,3 +51,13 @@ def test_mezcla_es_correcta_y_completa(monto, disp, max_b):
         assert dinero.valor(m) == dinero.pesos(monto)
         assert all(n <= disp[d] for d, n in m.items())
         assert dinero.billetes(m) <= max_b
+
+
+def test_restar_no_deja_mezclas_negativas_y_limpiar_quita_ceros():
+    import pytest
+
+    assert dinero.restar({500: 2, 100: 1}, {500: 2}) == {100: 1}
+    with pytest.raises(ValueError):
+        dinero.restar({500: 1}, {500: 2})
+    assert dinero.limpiar({"500": "2", 100: 0}) == {500: 2}
+    assert dinero.sumar({500: 1}, {500: 1, 20: 3}) == {500: 2, 20: 3}

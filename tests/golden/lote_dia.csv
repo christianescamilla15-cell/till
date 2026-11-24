@@ -1,0 +1,17 @@
+llave,tarjeta,tipo,cantidad,destino,falla,estado,cargo,abono,aclaracion
+g01,CTA-0001,retiro,1700,,ninguna,CONFIRMADA,1700.00,0.00,0.00
+g02,CTA-0001,retiro,1700,,atasco_al_contar,REVERTIDA,0.00,0.00,0.00
+g03,CTA-0001,retiro,1700,,entrega_parcial_50,PARCIAL,1000.00,0.00,0.00
+g04,CTA-0001,retiro,1700,,efectivo_no_retirado,REVERTIDA,0.00,0.00,0.00
+g05,CTA-0001,retiro,1700,,respuesta_0210_perdida,REVERTIDA,0.00,0.00,0.00
+g06,CTA-0001,retiro,500,,host_caido,REVERTIDA,0.00,0.00,0.00
+g07,CTA-0001,retiro,1700,,corte_tras_retiro,CONFIRMADA,1700.00,0.00,0.00
+g08,CTA-0001,retiro,1700,,corte_antes_de_retiro,REVERTIDA,0.00,0.00,0.00
+g09,CTA-0001,retiro,1700,,impresora_atascada,CONFIRMADA,1700.00,0.00,0.00
+g10,CTA-0001,retiro,30,,ninguna,CANCELADA,0.00,0.00,0.00
+g11,CTA-0002,retiro,2000,,ninguna,RECHAZADA,0.00,0.00,0.00
+g12,CTA-0001,deposito,500x2+100x3,,ninguna,CONFIRMADA,0.00,1300.00,0.00
+g13,CTA-0001,deposito,500x2+100x3,,atasco_al_contar_deposito,CANCELADA,0.00,0.00,0.00
+g14,CTA-0001,deposito,500x2+100x3,,atasco_al_guardar_y_al_devolver,REVERTIDA,0.00,0.00,1300.00
+g15,CTA-0001,pago_credito,1000x1,CRED-0001,ninguna,CONFIRMADA,0.00,0.00,0.00
+g16,CTA-0001,remesa,200x3,BENEF-01,ninguna,CONFIRMADA,0.00,0.00,0.00
